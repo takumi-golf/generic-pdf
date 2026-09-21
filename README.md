@@ -9,7 +9,9 @@
 
 [**いますぐ使う →**](https://ilove-ai.net/pdf) &nbsp;·&nbsp; [1ファイルをダウンロード](../../releases) &nbsp;·&nbsp; [English](#english)
 
-<img src="docs/screenshot.png" width="880" alt="ジェネリックPDFで請求書に名前と印影を置いているところ">
+<img src="docs/demo.gif" width="880" alt="請求書に名前を書いて、印鑑を押して、保存するまで">
+
+<sub>請求書に名前を書いて、印鑑を押して、保存する。17秒。ぜんぶブラウザの中。</sub>
 
 </div>
 
@@ -32,7 +34,7 @@
 
 | 調べるもの | 結果 |
 |---|---|
-| `fetch(` | **1か所** — 日本語フォントの取得（1689行目） |
+| `fetch(` | **1か所** — 日本語フォントの取得（1692行目） |
 | `XMLHttpRequest` | **0か所** — コメントに名前が出るだけ |
 | `FormData` / `sendBeacon` / `WebSocket` | **0か所** |
 | `POST` | **0か所** |
@@ -45,6 +47,14 @@ grep -n 'fetch(\|XMLHttpRequest\|FormData\|sendBeacon\|POST' index.html
 ネットワークに出るのは、ライブラリ・日本語フォント・画面用のWebフォントを**取ってくる**通信だけ。
 
 いちばん早い確認方法は、開発者ツールのネットワークタブを開いたままPDFを編集することです。**POST は1件も出ません。**
+
+こちらでも毎回測っています。headless Chromium で16の効能をひと通り操作したときの記録です。
+
+| 実測した項目 | 結果 |
+|---|---|
+| GET 以外のリクエスト | **0件** |
+| 本文のあるリクエスト | **0件** |
+| 通信先 | 同一オリジン / cdnjs / jsDelivr / Google Fonts のみ |
 
 `localStorage` に残るのは言語（`gp-lang`）とパネルの開閉（`gp-ui`）の2つだけ。タブを閉じれば、書類は跡形もなく消えます。
 
@@ -101,7 +111,7 @@ grep -n 'fetch(\|XMLHttpRequest\|FormData\|sendBeacon\|POST' index.html
 
 ## 中身
 
-`index.html` の1ファイル、2,050行、148KB。ビルド工程はありません。ブラウザで開いて、そのまま直せます。
+`index.html` の1ファイル、2,053行、148KB。ビルド工程はありません。ブラウザで開いて、そのまま直せます。
 
 | 使っているもの | ライセンス | 用途 |
 |---|---|---|
@@ -131,7 +141,7 @@ Sign it, stamp it, save it — all inside your browser. **One HTML file. 16 tool
 
 | What to look for | Result |
 |---|---|
-| `fetch(` | **1 occurrence** — fetching the Japanese font (line 1689) |
+| `fetch(` | **1 occurrence** — fetching the Japanese font (line 1692) |
 | `XMLHttpRequest` | **0** — the name only appears in a comment |
 | `FormData` / `sendBeacon` / `WebSocket` | **0** |
 | `POST` | **0** |
@@ -144,4 +154,4 @@ Continuous scrolling through all pages, zoom from 25% to 400% (Ctrl+wheel stays 
 
 **What it does not do**, and — apart from OCR — is not planned to: editing existing text or images in place (you overlay instead; white-out plus text does the job) · converting to Word/Excel/PowerPoint · PDF/A or PDF/X · certificate-based digital signatures (a drawn or image signature is fine) · comparing two PDFs · OCR (under consideration) · XFA forms · working offline (libraries and fonts come from a CDN).
 
-**Built with** pdf-lib (MIT), @pdf-lib/fontkit (MIT), pdf.js (Apache-2.0), qpdf-wasm (Apache-2.0, loaded on demand) and Noto Sans JP (SIL OFL 1.1), all pinned. The app itself is MIT. 2,050 lines, 148 KB, no build step — open it in a browser and edit it. Bug reports and requests: [Issues](../../issues).
+**Built with** pdf-lib (MIT), @pdf-lib/fontkit (MIT), pdf.js (Apache-2.0), qpdf-wasm (Apache-2.0, loaded on demand) and Noto Sans JP (SIL OFL 1.1), all pinned. The app itself is MIT. 2,053 lines, 148 KB, no build step — open it in a browser and edit it. Bug reports and requests: [Issues](../../issues).

@@ -178,6 +178,7 @@
   #drop ul{ list-style:none; margin-top:24px; font-size:14px; line-height:2; }
   #drop .cant{ width:min(720px,100%); font-size:12px; color:var(--mute); line-height:1.8; }
   #drop .cant b{ color:var(--fg); font-weight:400; font-family:var(--mono); }
+  #drop .cant a{ white-space:nowrap; }
 
   /* ── ページ一覧（サムネイル） ── */
   #thumbs{ display:flex; flex-direction:column; gap:8px; }
@@ -262,7 +263,7 @@
             <li data-t="drop.p3">閉じれば全部消えます</li>
           </ul>
         </div>
-        <div class="cant"><b data-t="cant.head">できないこと</b> <span data-t="cant.body">既存の文字や画像そのものの書き換え（上から重ねるだけ）／Word・Excel への変換／PDF/A・PDF/X への変換／証明書による電子署名（見た目の署名は可）／2つのPDFの比較／OCR（文字認識）。OCR 以外は対応する予定がありません。</span></div>
+        <div class="cant"><b data-t="cant.head">できないこと</b> <span data-t="cant.body">既存の文字の書き換え・Office への変換・電子署名・OCR</span> <a href="https://github.com/takumi-golf/generic-pdf#できないこと" target="_blank" rel="noopener" data-t="cant.more">くわしく →</a></div>
       </div>
       <div class="pagewrap" id="pagewrap" hidden>
         <div id="pageinfo">
@@ -319,9 +320,9 @@ const STR = {
   source: ["ソース →", "Source →"], add: ["＋ 追加", "+ Add"], save: ["保存 ↓", "Save ↓"],
   "drop.title": ["ここにPDFをドロップ", "Drop a PDF here"], "drop.or": ["または タップして選ぶ（PDF・PNG・JPG）", "or tap to choose files (PDF, PNG, JPG)"],
   "drop.p1": ["アップロードしません", "Nothing is uploaded"], "drop.p2": ["会員登録もカード登録もありません", "No account, no credit card"], "drop.p3": ["閉じれば全部消えます", "Close the tab and everything is gone"],
-  "cant.head": ["できないこと", "What it cannot do"],
-  "cant.body": ["既存の文字や画像そのものの書き換え（上から重ねるだけ）／Word・Excel への変換／PDF/A・PDF/X への変換／証明書による電子署名（見た目の署名は可）／2つのPDFの比較／OCR（文字認識）。OCR 以外は対応する予定がありません。",
-    "Editing existing text or images in place (you can only overlay) / converting to Word or Excel / PDF/A or PDF/X / certificate-based digital signatures (a drawn signature is fine) / comparing two PDFs / OCR. Apart from OCR, none of these are planned."],
+  "cant.head": ["できないこと", "Not supported"],
+  "cant.body": ["既存の文字の書き換え・Office への変換・電子署名・OCR", "editing existing text, Office conversion, digital signatures, OCR"],
+  "cant.more": ["くわしく →", "details →"],
   "tool.select": ["選択・移動", "Select / pan"], "tool.select.sub": ["クリックで選ぶ・ドラッグで動かす", "Click to select, drag to pan"],
   "select.note": ["置いた文字や図形をクリックすると選べます。空いている所をドラッグすると紙が動きます（他の効能でも Space を押しながらドラッグ）。", "Click a mark to select it. Drag empty space to pan the page (hold Space to pan in any tool)."],
   thumbsTitle: ["ページ", "Pages"], sheetOpen: ["設定を開く", "Settings"], sheetClose: ["閉じる", "Close"], selectedMark: ["選択中", "selected"],
@@ -430,7 +431,9 @@ const STR = {
 };
 let lang = (() => {
   try { const v = localStorage.getItem("gp-lang"); if (v === "ja" || v === "en") return v; } catch (_) { /* 私的モード等 */ }
-  return /^ja/i.test(navigator.language || "") ? "ja" : "en";
+  // 第2候補以降も見る（navigator.language だけだと、日本語を併用している環境で英語になる）
+  const list = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""]);
+  return list.some((l) => /^ja/i.test(l)) ? "ja" : "en";
 })();
 function t(key, vars) {
   const s = STR[key]; let out = s ? s[lang === "ja" ? 0 : 1] : key;
