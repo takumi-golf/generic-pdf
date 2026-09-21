@@ -55,8 +55,8 @@ your file anywhere. The only network requests fetch libraries and fonts.
 | 15 | 圧縮 / Compress | 劣化なし（構造の最適化）と画像化（劣化あり・文字が検索不能になる旨を明記）/ Lossless (structure) and rasterize (lossy, text becomes unsearchable, and it says so) |
 | 16 | パスワード / Password | AES-256 で保護（開く／権限、印刷・編集の禁止）。保護付き PDF はパスワードを聞いて外す / Protect with AES-256 (open / permissions, disallow print or edit). Protected PDFs ask for the password and come in unlocked |
 
-**見る・動かす**: 全ページを縦に連続表示（Acrobat と同じ）。ページ番号を打って移動、← → / Home / End。最初は「選択・移動」モードで、紙をクリックしても何も置かれず、空いている所をドラッグすると紙が動きます（他の効能でも Space＋ドラッグ）。左右のパネルは `[` `]` か上の « » で畳めます。
-**View and move**: all pages in one continuous scroll (like Acrobat). Type a page number to jump, ← → / Home / End. The default mode is Select / pan: clicking the page places nothing, dragging empty space pans (Space + drag in any tool). Fold the side panels with `[` `]` or the « » buttons.
+**見る・動かす**: 全ページを縦に連続表示（Acrobat と同じ）。ページ番号を打って移動、← → / Home / End。最初は「選択・移動」モードで、紙をクリックしても何も置かれず、空いている所をドラッグすると紙が動きます（他の効能でも Space＋ドラッグ）。左右のパネルは上端の « » か `[` `]` で畳めます。
+**View and move**: all pages in one continuous scroll (like Acrobat). Type a page number to jump, ← → / Home / End. The default mode is Select / pan: clicking the page places nothing, dragging empty space pans (Space + drag in any tool). Fold the side panels with the « » at their top or with `[` `]`.
 
 **拡大・縮小**: ツールバーの ＋ / −、倍率の選択（幅に合わせる・全体を表示・25〜400%）、Ctrl＋ホイール（カーソルの下が動きません）、Ctrl＋＋ / Ctrl＋− / Ctrl＋0、スマホは2本指。
 **Zoom**: + / − in the toolbar, a zoom menu (fit width, fit page, 25–400%), Ctrl+wheel (anchored under the cursor), Ctrl++ / Ctrl+- / Ctrl+0, or pinch on a phone.

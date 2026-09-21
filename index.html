@@ -72,13 +72,18 @@
   header .spacer{ flex:1; }
   header a.gh{ font-family:var(--mono); font-size:12px; text-decoration:none; border-bottom:1px solid currentColor; white-space:nowrap; }
   header button.lang{ font-family:var(--mono); font-size:12px; padding:4px 10px; }
-  header button.tgl{ font-family:var(--mono); font-size:14px; padding:2px 8px; line-height:1.4; }
   /* 左右のパネルは hidden で畳む。列は auto なので畳むと幅 0 になり、中央が広がる */
   main{ display:grid; grid-template-columns:auto 1fr auto; min-height:0; }
   /* 列は明示する。自動配置だと、左を畳んだときに中央が左の列（auto）へ落ちて広がらない */
   nav.tools{ grid-column:1; width:208px; border-right:var(--line); display:flex; flex-direction:column; overflow-y:auto; }
   #stage{ grid-column:2; }
   aside.props{ grid-column:3; }
+  /* パネルの畳み込み。開いているときは上端の « »、畳んだあとは幅 28px の帯に » « を残して戻せる */
+  .fold{ flex:none; border:0; border-bottom:var(--line); font-family:var(--mono); font-size:14px; padding:4px 12px; text-align:right; line-height:1.4; }
+  aside.props .fold{ text-align:left; }
+  .rail{ grid-row:1; width:28px; border:0; padding:8px 0 0; font-family:var(--mono); font-size:14px; line-height:1; align-self:stretch; }
+  #rail-l{ grid-column:1; border-right:var(--line); }
+  #rail-r{ grid-column:3; border-left:var(--line); }
   nav.tools button.sel{ border-bottom:var(--line); }
   nav.tools .grp{ font-family:var(--mono); font-size:11px; color:var(--mute); padding:12px 16px 4px; border-bottom:var(--line); }
   nav.tools button{ border:0; border-bottom:var(--line); text-align:left; padding:10px 16px; display:flex; gap:12px; align-items:baseline; line-height:1.4; }
@@ -107,7 +112,8 @@
   #scroller.panning, #scroller.panning .overlay{ cursor:grabbing; }
   .band{ position:absolute; border:1px dashed var(--fg); pointer-events:none; }
   .inktemp{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
-  aside.props{ width:296px; border-left:var(--line); padding:24px; overflow:auto; font-size:14px; }
+  aside.props{ width:296px; border-left:var(--line); display:flex; flex-direction:column; min-height:0; font-size:14px; }
+  #props-body{ padding:24px; overflow:auto; flex:1; min-height:0; }
   aside.props h2{ font-family:var(--mono); font-size:12px; font-weight:400; color:var(--mute); margin-bottom:8px; }
   aside.props h3{ font-size:13px; font-weight:700; margin:24px 0 8px; padding-top:16px; border-top:1px solid var(--faint); }
   aside.props .row{ margin-bottom:16px; }
@@ -120,9 +126,10 @@
   aside.props .btns button{ padding:6px 12px; font-size:14px; }
   aside.props p.note{ font-size:12px; color:var(--mute); }
   aside.props .warn{ border:var(--line); padding:8px; font-size:12px; }
-  aside.props table.keys{ width:100%; border-collapse:collapse; font-size:12px; }
-  aside.props table.keys td{ border-top:1px solid var(--faint); padding:4px 0; vertical-align:top; }
-  aside.props table.keys td:first-child{ font-family:var(--mono); color:var(--mute); padding-right:8px; white-space:nowrap; }
+  /* 2列を固定幅に。キー列を折り返し禁止にすると説明列が1文字ずつ折れて表が崩れる */
+  aside.props table.keys{ width:100%; border-collapse:collapse; font-size:12px; table-layout:fixed; }
+  aside.props table.keys td{ border-top:1px solid var(--faint); padding:4px 0; vertical-align:top; overflow-wrap:anywhere; }
+  aside.props table.keys td:first-child{ font-family:var(--mono); color:var(--mute); padding-right:8px; width:50%; }
   aside.props ul.plain{ list-style:none; font-size:13px; }
   aside.props ul.plain li{ padding:4px 0; border-top:1px solid var(--faint); }
   aside.props .two{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
@@ -189,7 +196,9 @@
     #sheetbar{ display:flex; grid-column:1; grid-row:3; align-items:center; justify-content:space-between; gap:8px; padding:6px 12px; border-top:var(--line); font-size:13px; }
     #sheetbar #sheet-title{ font-family:var(--mono); font-size:12px; color:var(--mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #sheetbar button{ padding:4px 12px; font-size:13px; flex:none; }
-    aside.props{ grid-column:1; grid-row:4; width:auto; border-left:0; border-top:1px solid var(--faint); max-height:50vh; padding:12px 16px; }
+    aside.props{ grid-column:1; grid-row:4; width:auto; border-left:0; border-top:1px solid var(--faint); max-height:50vh; }
+    #props-body{ padding:12px 16px; }
+    .fold, .rail{ display:none !important; }
     aside.props .keysblock{ display:none; }
     aside.props .row{ margin-bottom:12px; }
     #pages{ padding:8px 8px 30vh; }
@@ -198,7 +207,7 @@
     #pageinfo #pagesize{ display:none; }
     header{ gap:8px; height:48px; padding:0 8px; }
     header h1{ font-size:14px; white-space:nowrap; }
-    header .ver, header a.gh, header #fname, header .tgl{ display:none; }
+    header .ver, header a.gh, header #fname{ display:none; }
     header button{ padding:6px 10px; font-size:14px; white-space:nowrap; }
     #drop{ padding:12px; gap:12px; justify-content:flex-start; }
     #drop .box{ padding:28px 16px; }
@@ -212,7 +221,6 @@
 <body>
 <div id="app">
   <header>
-    <button id="btn-nav" class="tgl" aria-label="tools panel">«</button>
     <h1>ジェネリックPDF</h1>
     <span class="ver">v1.0.0</span>
     <a class="gh" href="https://github.com/takumi-golf/generic-pdf" target="_blank" rel="noopener" data-t="source">ソース →</a>
@@ -221,10 +229,10 @@
     <button id="btn-add" hidden data-t="add">＋ 追加</button>
     <button id="btn-save" class="primary" hidden data-t="save">保存 ↓</button>
     <button id="btn-lang" class="lang" aria-label="Language">EN</button>
-    <button id="btn-props" class="tgl" aria-label="settings panel">»</button>
   </header>
   <main>
     <nav class="tools" id="tools" aria-label="tools"></nav>
+    <button id="rail-l" class="rail" hidden>»</button>
     <section id="stage">
       <div id="drop">
         <div class="box" id="dropbox" role="button" tabindex="0">
@@ -253,7 +261,8 @@
       </div>
     </section>
     <div id="sheetbar"><span id="sheet-title"></span><button id="sheet-toggle"></button></div>
-    <aside class="props" id="props"></aside>
+    <button id="rail-r" class="rail" hidden>«</button>
+    <aside class="props" id="props"><button class="fold" id="fold-r">»</button><div id="props-body"></div></aside>
   </main>
 </div>
 <div id="status" role="status"></div>
@@ -298,8 +307,8 @@ const STR = {
   "tool.select": ["選択・移動", "Select / pan"], "tool.select.sub": ["クリックで選ぶ・ドラッグで動かす", "Click to select, drag to pan"],
   "select.note": ["置いた文字や図形をクリックすると選べます。空いている所をドラッグすると紙が動きます（他の効能でも Space を押しながらドラッグ）。", "Click a mark to select it. Drag empty space to pan the page (hold Space to pan in any tool)."],
   thumbsTitle: ["ページ", "Pages"], sheetOpen: ["設定を開く", "Settings"], sheetClose: ["閉じる", "Close"], selectedMark: ["選択中", "selected"],
-  hideTools: ["左のパネルを畳む（[）", "Hide the tools panel ([)"], showTools: ["左のパネルを開く（[）", "Show the tools panel ([)"],
-  hideProps: ["右のパネルを畳む（]）", "Hide the settings panel (])"], showProps: ["右のパネルを開く（]）", "Show the settings panel (])"],
+  hideTools: ["効能の一覧を畳む（[）", "Hide the tools ([)"], showTools: ["効能の一覧を開く（[）", "Show the tools ([)"],
+  hideProps: ["設定を畳む（]）", "Hide the settings (])"], showProps: ["設定を開く（]）", "Show the settings (])"],
   "keys.select": ["V / Esc", "V / Esc"], "keys.selectd": ["選択・移動に戻る", "Back to select"],
   "keys.space": ["Space＋ドラッグ", "Space + drag"], "keys.spaced": ["紙を動かす（どの効能でも）", "Pan (in any tool)"],
   "keys.panels": ["[ / ]", "[ / ]"], "keys.panelsd": ["左 / 右のパネルを畳む・開く", "Toggle the left / right panel"],
@@ -498,11 +507,11 @@ function shortcutHelp() {
 const $ = (s) => document.querySelector(s);
 const el = {
   drop: $("#drop"), dropbox: $("#dropbox"), pagewrap: $("#pagewrap"),
-  props: $("#props"), status: $("#status"), fname: $("#fname"), pagesize: $("#pagesize"),
+  props: $("#props-body"), propsAside: $("#props"), status: $("#status"), fname: $("#fname"), pagesize: $("#pagesize"),
   btnSave: $("#btn-save"), btnAdd: $("#btn-add"), btnPrev: $("#btn-prev"), btnNext: $("#btn-next"), btnLang: $("#btn-lang"),
   filePdf: $("#file-pdf"), fileImg: $("#file-img"), stage: $("#stage"), tools: $("#tools"),
   scroller: $("#scroller"), pages: $("#pages"), pageInput: $("#pageinput"), pageTotal: $("#pagetotal"), zoomSel: $("#zoomsel"), btnZoomIn: $("#btn-zoomin"), btnZoomOut: $("#btn-zoomout"),
-  btnNav: $("#btn-nav"), btnProps: $("#btn-props"), sheetTitle: $("#sheet-title"), sheetToggle: $("#sheet-toggle"),
+  railL: $("#rail-l"), railR: $("#rail-r"), foldR: $("#fold-r"), sheetTitle: $("#sheet-title"), sheetToggle: $("#sheet-toggle"),
 };
 
 function status(msg, ms = 2400) {
@@ -921,6 +930,9 @@ function arrowHeadPath([x1, y1], [x2, y2], len) {
 /* ───────────── 効能の切り替え・右パネル ─────────────*/
 function renderNav() {
   el.tools.innerHTML = "";
+  const fold = document.createElement("button"); fold.className = "fold"; fold.id = "fold-l"; fold.textContent = "«"; fold.title = t("hideTools"); fold.setAttribute("aria-label", t("hideTools"));
+  fold.addEventListener("click", () => toggleUI("nav"));
+  el.tools.appendChild(fold);
   const selBtn = document.createElement("button"); selBtn.dataset.tool = "select"; selBtn.className = "sel"; selBtn.setAttribute("aria-pressed", String(state.tool === "select"));
   selBtn.innerHTML = `<span class="no">V</span><span>${t("tool.select")}<span class="sub">${t("tool.select.sub")}</span></span>`;
   selBtn.addEventListener("click", () => { if (state.pages.length) setTool("select"); else status(t("loadFirst")); });
@@ -1870,11 +1882,12 @@ el.scroller.addEventListener("scroll", () => {
 /* 左右のパネルの開閉。畳むと中央が広がるので幅に合わせ直す */
 function applyUI({ rerender = true } = {}) {
   const m = isMobile();
-  el.tools.hidden = m ? false : !state.ui.nav; el.props.hidden = m ? !state.ui.sheet : !state.ui.props;
+  el.tools.hidden = m ? false : !state.ui.nav; el.propsAside.hidden = m ? !state.ui.sheet : !state.ui.props;
+  el.railL.hidden = m || state.ui.nav; el.railR.hidden = m || state.ui.props;
+  el.railL.title = t("showTools"); el.railL.setAttribute("aria-label", t("showTools")); el.railR.title = t("showProps"); el.railR.setAttribute("aria-label", t("showProps"));
+  el.foldR.title = t("hideProps"); el.foldR.setAttribute("aria-label", t("hideProps"));
   el.sheetToggle.textContent = t(state.ui.sheet ? "sheetClose" : "sheetOpen"); el.sheetToggle.setAttribute("aria-expanded", String(state.ui.sheet));
   updateSheetTitle();
-  el.btnNav.textContent = state.ui.nav ? "«" : "»"; el.btnNav.title = t(state.ui.nav ? "hideTools" : "showTools"); el.btnNav.setAttribute("aria-pressed", String(state.ui.nav));
-  el.btnProps.textContent = state.ui.props ? "»" : "«"; el.btnProps.title = t(state.ui.props ? "hideProps" : "showProps"); el.btnProps.setAttribute("aria-pressed", String(state.ui.props));
   try { localStorage.setItem("gp-ui", JSON.stringify({ nav: state.ui.nav, props: state.ui.props })); } catch (_) { /* 保存できなくても動く */ }
   if (rerender && state.pages.length) render();
 }
@@ -1886,8 +1899,9 @@ function updateSheetTitle() {
 }
 el.sheetToggle.addEventListener("click", () => toggleUI("sheet"));
 mobileMq.addEventListener("change", () => { state.ui.sheet = false; applyUI(); });
-el.btnNav.addEventListener("click", () => toggleUI("nav"));
-el.btnProps.addEventListener("click", () => toggleUI("props"));
+el.railL.addEventListener("click", () => toggleUI("nav"));
+el.railR.addEventListener("click", () => toggleUI("props"));
+el.foldR.addEventListener("click", () => toggleUI("props"));
 el.btnSave.addEventListener("click", () => exportPdf());
 el.btnAdd.addEventListener("click", () => el.filePdf.click());
 el.btnLang.addEventListener("click", () => setLang(lang === "ja" ? "en" : "ja"));
