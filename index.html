@@ -1,0 +1,1558 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ジェネリックPDF — 文字入れ・押印・署名・結合・分割・回転・透かし・パスワード・墨消し。アップロードしない、ブラウザだけで動くPDFツール</title>
+<meta name="description" content="PDFに文字を書く・印影を押す・手書き署名・結合・分割・並べ替え・回転・トリミング・透かし・ページ番号・フォーム記入・パスワード保護と解除・墨消し・画像との相互変換・圧縮。ファイルはあなたのPCから出ません。会員登録もカード登録もなし。0円。日本語 / English。">
+<meta property="og:title" content="ジェネリックPDF">
+<meta property="og:description" content="有名なPDF編集サービスと同じ効能を、添加物なしで。ファイルはあなたのPCから出ません。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ilove-ai.net/pdf">
+<meta property="og:image" content="https://ilove-ai.net/pdf/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://ilove-ai.net/pdf">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<!--
+  ジェネリックPDF v1.1.0 / Generic PDF
+  ─────────────────────────────────────────────────────────────
+  このファイル1つで動きます。ダブルクリックで開いても、https://ilove-ai.net/pdf で開いても同じです。
+  This single file is the whole app. Open it locally or at https://ilove-ai.net/pdf — same thing.
+
+  データの扱い（守っていること） / What never happens:
+  - PDF も画像も、FileReader でブラウザのメモリに読むだけです。
+  - fetch / XMLHttpRequest でファイル本体を送る処理は、このファイルの中に存在しません。
+    ネットワークに出るのは「ライブラリ」「日本語フォント」「Web フォント（見た目用）」の取得だけです。
+    Nothing you open is ever sent anywhere. The only network requests are for libraries and fonts.
+  - 保存は Blob を a[download] で落とすだけ。localStorage に置くのは言語設定（gp-lang）だけです。
+  - 閉じれば全部消えます。
+
+  ライブラリ（すべてバージョン固定・必要になったときだけ読み込む） / Libraries (pinned, loaded on demand):
+  - pdf-lib 1.17.1 (MIT)              https://github.com/Hopding/pdf-lib
+  - @pdf-lib/fontkit 1.1.1 (MIT)      https://github.com/Hopding/fontkit
+  - pdf.js 4.10.38 (Apache-2.0)       https://github.com/mozilla/pdf.js
+  - qpdf-wasm 0.0.2 (Apache-2.0)      https://github.com/jsscheller/qpdf-wasm  … パスワード保護・解除・劣化なし圧縮のときだけ
+  - Noto Sans JP (OFL-1.1)            https://github.com/notofonts/noto-cjk    … 日本語を書くときだけ
+-->
+<style>
+  :root{
+    --bg:#FFFFFF; --fg:#000000; --mute:#666666; --faint:#DDDDDD;
+    --line:1px solid var(--fg);
+    --sans:"Inter","Noto Sans JP",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#000000; --fg:#FFFFFF; --mute:#999999; --faint:#333333; } }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  [hidden]{ display:none !important; }
+  html,body{ height:100%; }
+  body{ background:var(--bg); color:var(--fg); font:16px/1.6 var(--sans); }
+  button, input, select, textarea{ font:inherit; color:inherit; background:var(--bg); border:var(--line); border-radius:0; }
+  button{ cursor:pointer; padding:8px 16px; transition:background .12s, color .12s; }
+  button:hover{ background:var(--fg); color:var(--bg); }
+  button.primary{ background:var(--fg); color:var(--bg); }
+  button.primary:hover{ background:var(--bg); color:var(--fg); }
+  button[disabled]{ opacity:.4; cursor:default; }
+  button[disabled]:hover{ background:var(--bg); color:var(--fg); }
+  button.primary[disabled]:hover{ background:var(--fg); color:var(--bg); }
+  a{ color:inherit; }
+  .mono{ font-family:var(--mono); }
+  .mute{ color:var(--mute); }
+  .sr{ position:absolute; left:-9999px; }
+
+  /* ── 骨格 ── */
+  #app{ display:grid; grid-template-rows:auto 1fr; height:100%; }
+  header{ display:flex; align-items:center; gap:16px; padding:0 16px; height:56px; border-bottom:var(--line); overflow:hidden; }
+  header h1{ font-size:16px; font-weight:700; white-space:nowrap; }
+  header button{ white-space:nowrap; flex:none; }
+  header #fname{ min-width:0; max-width:36vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  header .ver{ font-family:var(--mono); font-size:12px; color:var(--mute); }
+  header .spacer{ flex:1; }
+  header a.gh{ font-family:var(--mono); font-size:12px; text-decoration:none; border-bottom:1px solid currentColor; white-space:nowrap; }
+  header button.lang{ font-family:var(--mono); font-size:12px; padding:4px 10px; }
+  main{ display:grid; grid-template-columns:208px 1fr 296px; min-height:0; }
+  nav.tools{ border-right:var(--line); display:flex; flex-direction:column; overflow-y:auto; }
+  nav.tools .grp{ font-family:var(--mono); font-size:11px; color:var(--mute); padding:12px 16px 4px; border-bottom:var(--line); }
+  nav.tools button{ border:0; border-bottom:var(--line); text-align:left; padding:10px 16px; display:flex; gap:12px; align-items:baseline; line-height:1.4; }
+  nav.tools button .no{ font-family:var(--mono); font-size:12px; width:24px; flex:none; }
+  nav.tools button[aria-pressed="true"]{ background:var(--fg); color:var(--bg); }
+  nav.tools .sub{ font-size:11px; color:var(--mute); display:block; }
+  nav.tools button[aria-pressed="true"] .sub{ color:var(--bg); opacity:.7; }
+  #stage{ overflow:auto; position:relative; background:var(--bg); }
+  #stage .pagewrap{ padding:24px; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  #pageinfo{ font-family:var(--mono); font-size:12px; display:flex; gap:16px; align-items:center; }
+  #pageinfo button{ padding:2px 10px; }
+  #canvasbox{ position:relative; border:var(--line); line-height:0; touch-action:none; }
+  #canvasbox canvas{ display:block; }
+  #overlay{ position:absolute; inset:0; overflow:hidden; }
+  #overlay.cross{ cursor:crosshair; }
+  #band{ position:absolute; border:1px dashed var(--fg); pointer-events:none; }
+  #inktemp{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+  aside.props{ border-left:var(--line); padding:24px; overflow:auto; font-size:14px; }
+  aside.props h2{ font-family:var(--mono); font-size:12px; font-weight:400; color:var(--mute); margin-bottom:8px; }
+  aside.props h3{ font-size:13px; font-weight:700; margin:24px 0 8px; padding-top:16px; border-top:1px solid var(--faint); }
+  aside.props .row{ margin-bottom:16px; }
+  aside.props label{ display:block; font-family:var(--mono); font-size:12px; color:var(--mute); margin-bottom:4px; }
+  aside.props label.chk{ display:flex; gap:8px; align-items:center; font-family:var(--sans); font-size:14px; color:var(--fg); }
+  aside.props input[type=text], aside.props input[type=number], aside.props input[type=password], aside.props textarea, aside.props select{ width:100%; padding:8px; }
+  aside.props input[type=range]{ width:100%; }
+  aside.props textarea{ min-height:88px; resize:vertical; }
+  aside.props .btns{ display:flex; gap:8px; flex-wrap:wrap; }
+  aside.props .btns button{ padding:6px 12px; font-size:14px; }
+  aside.props p.note{ font-size:12px; color:var(--mute); }
+  aside.props .warn{ border:var(--line); padding:8px; font-size:12px; }
+  aside.props table.keys{ width:100%; border-collapse:collapse; font-size:12px; }
+  aside.props table.keys td{ border-top:1px solid var(--faint); padding:4px 0; vertical-align:top; }
+  aside.props table.keys td:first-child{ font-family:var(--mono); color:var(--mute); padding-right:8px; white-space:nowrap; }
+  aside.props ul.plain{ list-style:none; font-size:13px; }
+  aside.props ul.plain li{ padding:4px 0; border-top:1px solid var(--faint); }
+  aside.props .two{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  aside.props .field{ border-top:1px solid var(--faint); padding:8px 0; }
+  aside.props .field b{ font-size:12px; font-family:var(--mono); font-weight:400; display:block; color:var(--mute); }
+
+  /* ── 注釈（オーバーレイ上の要素） ── */
+  .annot{ position:absolute; border:1px dashed transparent; user-select:none; cursor:move; }
+  .annot.selected{ border-color:var(--fg); }
+  .annot.text{ white-space:pre; line-height:1.2; padding:0; }
+  .annot.image img{ width:100%; height:100%; display:block; pointer-events:none; }
+  .annot .handle{ position:absolute; right:-6px; bottom:-6px; width:12px; height:12px; background:var(--fg); cursor:nwse-resize; display:none; }
+  .annot.selected .handle{ display:block; }
+  .annot.shape.rect{ border-style:solid; }
+  .annot.shape.highlight{ background:rgba(255,235,0,.55); mix-blend-mode:multiply; }
+  .annot.shape.white{ background:#fff; }
+  #overlay.shape-mode .annot.shape.white{ outline:1px dashed #999; }
+  .annot.redact{ background:#000; }
+  svg.annot{ overflow:visible; border:0; pointer-events:none; }
+  svg.annot.selected{ outline:1px dashed var(--fg); }
+  svg.annot path, svg.annot line{ fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  svg.annot .hit{ stroke:transparent; stroke-width:12; pointer-events:visibleStroke; cursor:move; }
+  .prev{ position:absolute; pointer-events:none; white-space:nowrap; line-height:1; }
+  .prev.crop{ border:1px dashed var(--fg); box-shadow:0 0 0 9999px rgba(128,128,128,.35); }
+  .prev.cropdraft{ border:2px solid var(--fg); }
+
+  /* ── ドロップ画面 ── */
+  #drop{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; gap:24px; overflow:auto; }
+  #drop .box{ border:1px dashed var(--fg); width:min(720px,100%); padding:56px 24px; text-align:center; cursor:pointer; }
+  #drop .box.over{ background:var(--fg); color:var(--bg); }
+  #drop h2{ font-size:24px; font-weight:700; margin-bottom:16px; }
+  #drop p{ font-size:14px; }
+  #drop ul{ list-style:none; margin-top:24px; font-size:14px; line-height:2; }
+  #drop .cant{ width:min(720px,100%); font-size:12px; color:var(--mute); line-height:1.8; }
+  #drop .cant b{ color:var(--fg); font-weight:400; font-family:var(--mono); }
+
+  /* ── ページ一覧（サムネイル） ── */
+  #thumbs{ display:flex; flex-direction:column; gap:8px; }
+  .thumb{ display:grid; grid-template-columns:64px 1fr; gap:8px; border:var(--line); padding:8px; align-items:center; }
+  .thumb.current{ background:var(--fg); color:var(--bg); }
+  .thumb.current button{ background:var(--fg); color:var(--bg); border-color:var(--bg); }
+  .thumb.current button:hover{ background:var(--bg); color:var(--fg); }
+  .thumb canvas{ width:64px; border:1px solid var(--mute); display:block; }
+  .thumb .meta{ font-family:var(--mono); font-size:11px; }
+  .thumb .meta b{ display:block; font-size:12px; }
+  .thumb .ops{ display:flex; gap:4px; margin-top:4px; }
+  .thumb .ops button{ padding:2px 8px; font-size:12px; }
+
+  #status{ position:fixed; left:16px; bottom:16px; font-family:var(--mono); font-size:12px; background:var(--bg); border:var(--line); padding:8px 12px; display:none; max-width:calc(100% - 32px); z-index:5; }
+  #status.show{ display:block; }
+
+  /* ── スマホ ── */
+  @media (max-width:768px){
+    main{ grid-template-columns:1fr; grid-template-rows:auto 1fr auto; }
+    nav.tools{ flex-direction:row; border-right:0; border-bottom:var(--line); overflow-x:auto; overflow-y:hidden; }
+    nav.tools .grp{ display:none; }
+    nav.tools button{ border-bottom:0; border-right:var(--line); white-space:nowrap; padding:12px; }
+    nav.tools .sub{ display:none; }
+    aside.props{ border-left:0; border-top:var(--line); max-height:42vh; padding:16px; }
+    #stage .pagewrap{ padding:8px; }
+    header{ gap:8px; height:48px; padding:0 8px; }
+    header h1{ font-size:14px; white-space:nowrap; }
+    header .ver, header a.gh, header #fname{ display:none; }
+    header button{ padding:6px 10px; font-size:14px; white-space:nowrap; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>ジェネリックPDF</h1>
+    <span class="ver">v1.1.0</span>
+    <a class="gh" href="https://github.com/takumi-golf/generic-pdf" target="_blank" rel="noopener" data-t="source">ソース →</a>
+    <span class="spacer"></span>
+    <span id="fname" class="mono mute"></span>
+    <button id="btn-add" hidden data-t="add">＋ 追加</button>
+    <button id="btn-save" class="primary" hidden data-t="save">保存 ↓</button>
+    <button id="btn-lang" class="lang" aria-label="Language">EN</button>
+  </header>
+  <main>
+    <nav class="tools" id="tools" aria-label="tools"></nav>
+    <section id="stage">
+      <div id="drop">
+        <div class="box" id="dropbox" role="button" tabindex="0">
+          <h2 data-t="drop.title">ここにPDFをドロップ</h2>
+          <p class="mono" data-t="drop.or">または クリックしてファイルを選ぶ（PDF・PNG・JPG）</p>
+          <ul>
+            <li data-t="drop.p1">アップロードしません</li>
+            <li data-t="drop.p2">会員登録もカード登録もありません</li>
+            <li data-t="drop.p3">閉じれば全部消えます</li>
+          </ul>
+        </div>
+        <div class="cant"><b data-t="cant.head">できないこと</b> <span data-t="cant.body">既存の文字や画像そのものの書き換え（上から重ねるだけ）／Word・Excel への変換／PDF/A・PDF/X への変換／証明書による電子署名（見た目の署名は可）／2つのPDFの比較／OCR（文字認識）。OCR 以外は対応する予定がありません。</span></div>
+      </div>
+      <div class="pagewrap" id="pagewrap" hidden>
+        <div id="pageinfo">
+          <button id="btn-prev">←</button>
+          <span id="pagenum">1 / 1</span>
+          <button id="btn-next">→</button>
+          <span id="pagesize" class="mute"></span>
+        </div>
+        <div id="canvasbox">
+          <canvas id="cv"></canvas>
+          <div id="overlay"></div>
+        </div>
+      </div>
+    </section>
+    <aside class="props" id="props"></aside>
+  </main>
+</div>
+<div id="status" role="status"></div>
+<input id="file-pdf" class="sr" type="file" accept="application/pdf,.pdf,image/png,image/jpeg,.png,.jpg,.jpeg" multiple>
+<input id="file-img" class="sr" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+<script type="module">
+import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+
+if (!window.PDFLib || !window.fontkit) {
+  const st = document.getElementById("status");
+  st.textContent = "部品（pdf-lib / fontkit）を読み込めませんでした。ネットワークを確認して再読み込みしてください。 / Could not load pdf-lib / fontkit. Check your network and reload.";
+  st.classList.add("show");
+  throw new Error("libraries not loaded");
+}
+const { PDFDocument, StandardFonts, degrees, rgb, BlendMode, LineCapStyle, LineJoinStyle,
+  pushGraphicsState, popGraphicsState, setLineWidth, setStrokingColor, setLineCap, setLineJoin, moveTo, lineTo, stroke } = PDFLib;
+const VERSION = "1.1.0";
+const HOST = "https://ilove-ai.net";
+// 同梱サブセットは同一オリジン（本番・ローカル配信）を先に試し、単体で開いたとき（file://）は本番から取る
+const FONT_SUBSET_PATH = "/pdf/fonts/NotoSansJP-Regular.subset.otf";
+const FONT_SUBSET_URLS = location.protocol === "file:" ? [HOST + FONT_SUBSET_PATH] : [FONT_SUBSET_PATH, HOST + FONT_SUBSET_PATH];
+const FONT_FULL_URL = "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/JP/NotoSansJP-Regular.otf";
+const QPDF_BASE = "https://cdn.jsdelivr.net/npm/@jspawn/qpdf-wasm@0.0.2/";
+const WARN_BYTES = 100 * 1024 * 1024;
+const COLORS = { black: rgb(0, 0, 0), red: rgb(0.85, 0, 0), blue: rgb(0, 0.2, 0.85), gray: rgb(0.55, 0.55, 0.55), white: rgb(1, 1, 1), yellow: rgb(1, 0.92, 0) };
+const COLOR_CSS = { black: "#000000", red: "#d90000", blue: "#0033d9", gray: "#8c8c8c", white: "#ffffff", yellow: "#ffeb00" };
+const A4 = [595.28, 841.89], LETTER = [612, 792];
+
+/* ───────────── 言語 ─────────────
+   画面の文言は全部ここ。[日本語, English]。保存するのは localStorage の "gp-lang" だけ */
+const STR = {
+  source: ["ソース →", "Source →"], add: ["＋ 追加", "+ Add"], save: ["保存 ↓", "Save ↓"],
+  "drop.title": ["ここにPDFをドロップ", "Drop a PDF here"], "drop.or": ["または クリックしてファイルを選ぶ（PDF・PNG・JPG）", "or click to choose files (PDF, PNG, JPG)"],
+  "drop.p1": ["アップロードしません", "Nothing is uploaded"], "drop.p2": ["会員登録もカード登録もありません", "No account, no credit card"], "drop.p3": ["閉じれば全部消えます", "Close the tab and everything is gone"],
+  "cant.head": ["できないこと", "What it cannot do"],
+  "cant.body": ["既存の文字や画像そのものの書き換え（上から重ねるだけ）／Word・Excel への変換／PDF/A・PDF/X への変換／証明書による電子署名（見た目の署名は可）／2つのPDFの比較／OCR（文字認識）。OCR 以外は対応する予定がありません。",
+    "Editing existing text or images in place (you can only overlay) / converting to Word or Excel / PDF/A or PDF/X / certificate-based digital signatures (a drawn signature is fine) / comparing two PDFs / OCR. Apart from OCR, none of these are planned."],
+  "group.write": ["書く", "Write"], "group.page": ["ページ", "Pages"], "group.finish": ["仕上げ", "Finish"], "group.out": ["出力", "Output"],
+  "tool.text": ["文字を書く", "Text"], "tool.text.sub": ["クリックして配置", "Click to place"],
+  "tool.image": ["印影・画像", "Stamp / image"], "tool.image.sub": ["PNG / JPG を貼る", "Place PNG / JPG"],
+  "tool.draw": ["手書き・署名", "Draw / sign"], "tool.draw.sub": ["指・マウスで描く", "Finger or mouse"],
+  "tool.shape": ["図形・マーカー", "Shapes / highlight"], "tool.shape.sub": ["枠・線・矢印・白塗り", "Box, line, arrow, white-out"],
+  "tool.redact": ["墨消し", "Redact"], "tool.redact.sub": ["下の文字ごと消す", "Removes what is underneath"],
+  "tool.pages": ["結合・分割", "Merge / split"], "tool.pages.sub": ["並べ替え・削除", "Reorder, delete"],
+  "tool.rotate": ["回転", "Rotate"], "tool.rotate.sub": ["90度ずつ", "90° steps"],
+  "tool.blank": ["白紙ページ", "Blank page"], "tool.blank.sub": ["A4 / Letter / 同サイズ", "A4 / Letter / same size"],
+  "tool.crop": ["トリミング", "Crop"], "tool.crop.sub": ["ドラッグで範囲", "Drag a rectangle"],
+  "tool.watermark": ["透かし", "Watermark"], "tool.watermark.sub": ["文字・画像を全ページに", "Text or image on every page"],
+  "tool.pagenum": ["ページ番号", "Page numbers"], "tool.pagenum.sub": ["ベイツ番号にも", "Bates numbering too"],
+  "tool.form": ["フォーム記入", "Fill form"], "tool.form.sub": ["入力して確定", "Fill and flatten"],
+  "tool.meta": ["情報", "Info"], "tool.meta.sub": ["タイトル・作成者", "Title, author"],
+  "tool.convert": ["画像に変換", "To images"], "tool.convert.sub": ["PNG / JPG ⇄ PDF", "PNG / JPG ⇄ PDF"],
+  "tool.compress": ["圧縮", "Compress"], "tool.compress.sub": ["劣化なし / 画像化", "Lossless / rasterize"],
+  "tool.protect": ["パスワード", "Password"], "tool.protect.sub": ["保護・解除", "Protect / remove"],
+  loadFirst: ["先にPDFを読み込んでください", "Load a PDF first"],
+  "help.title": ["使い方", "How to use"],
+  "help.body": ["PDF か画像を読み込むと、左の効能が使えます。ファイルはこのブラウザの中だけで処理されます。", "Load a PDF or image and the tools on the left become available. Everything stays inside this browser."],
+  "keys.title": ["ショートカット", "Shortcuts"], "keys.undo": ["戻る / やり直す", "Undo / redo"], "keys.save": ["保存", "Save"], "keys.open": ["ファイルを開く", "Open file"],
+  "keys.del": ["選択中のものを削除", "Delete selection"], "keys.arrow": ["矢印（Shift で10倍）", "Arrows (Shift = ×10)"], "keys.move": ["選択中のものを動かす", "Nudge selection"],
+  "keys.page": ["← → / PageUp PageDown", "← → / PageUp PageDown"], "keys.pagemove": ["ページ移動", "Previous / next page"], "keys.tools": ["1〜9", "1–9"], "keys.toolsw": ["効能の切り替え", "Switch tool"],
+  pickPdf: ["PDF か PNG / JPG を選んでください", "Choose a PDF or a PNG / JPG"],
+  bigFile: ["{name} は {mb}MB あります。ブラウザのメモリが足りずに落ちることがあります。続けますか？", "{name} is {mb}MB. The browser may run out of memory. Continue?"],
+  loading: ["{name} を読み込んでいます…", "Loading {name}…"],
+  askPassword: ["{name} はパスワードで保護されています。開くパスワードを入力してください（空欄で中止）", "{name} is password-protected. Enter the password to open it (leave empty to cancel)"],
+  wrongPassword: ["パスワードが違います", "Wrong password"],
+  unlocked: ["{name}: 保護を外しました。保存すればパスワードなしのPDFになります", "{name}: protection removed. Save to get an unprotected PDF"],
+  loadFail: ["{name}: 読み込めませんでした（{err}）", "{name}: could not be loaded ({err})"],
+  loaded: ["読み込みました。ファイルはこのブラウザの中にだけあります。", "Loaded. The file exists only inside this browser."],
+  others: ["{name} ほか{n}件", "{name} +{n} more"],
+  rotated: ["回転{deg}°", "rotated {deg}°"],
+  noUndo: ["戻る操作はありません", "Nothing to undo"], noRedo: ["やり直す操作はありません", "Nothing to redo"], undone: ["1つ戻しました", "Undone"], redone: ["やり直しました", "Redone"],
+  content: ["内容", "Text"], size: ["サイズ（pt）", "Size (pt)"], color: ["色", "Color"], width: ["太さ（pt）", "Stroke (pt)"], opacity: ["濃さ", "Opacity"], angle: ["角度", "Angle"],
+  "c.black": ["黒", "Black"], "c.red": ["赤", "Red"], "c.blue": ["青", "Blue"], "c.gray": ["灰", "Gray"], "c.white": ["白", "White"],
+  del: ["× 削除", "× Delete"], none: ["選択中のものはありません", "Nothing selected"],
+  "text.note": ["ページ上をクリックすると文字を置けます。ドラッグで移動。日本語OK。", "Click on the page to place text. Drag to move. Japanese OK."],
+  "text.note2": ["既存の文字は書き換えられません（上に重ねます）。Ctrl+Z で戻せます。", "Existing text cannot be edited (you overlay on top). Ctrl+Z undoes."],
+  "image.note": ["PNG（透過OK）か JPG を選び、ページ上をクリックして置きます。右下の角で大きさ、ドラッグで移動。", "Choose a PNG (transparency OK) or JPG, then click on the page. Resize from the bottom-right corner, drag to move."],
+  pickImage: ["画像を選ぶ", "Choose image"], notPicked: ["未選択", "None chosen"], clickToPlace: ["{name} — ページをクリック", "{name} — click on the page"],
+  imgOnly: ["PNG か JPG を選んでください", "Choose a PNG or JPG"], placeHint: ["ページ上をクリックして置いてください", "Click on the page to place it"],
+  pickFirst: ["先に「画像を選ぶ」で PNG / JPG を選んでください", "Choose a PNG / JPG first"],
+  "draw.note": ["ページの上で指かマウスを動かすと線が描けます。署名に。描いた線をクリックすると選べます。", "Draw with your finger or mouse, e.g. a signature. Click a stroke to select it."],
+  "shape.note": ["ページ上でドラッグして描きます。描いたものはドラッグで移動、右下の角で大きさ。", "Drag on the page to draw. Drag to move, resize from the bottom-right corner."],
+  kind: ["種類", "Kind"], "k.rect": ["枠線", "Box"], "k.highlight": ["マーカー（黄）", "Highlight (yellow)"], "k.white": ["白塗り（修正液）", "White-out"], "k.line": ["直線", "Line"], "k.arrow": ["矢印", "Arrow"],
+  "redact.note": ["ページ上でドラッグして黒い箱を置きます。保存時、<b>そのページは画像に変換され、箱の下にあった文字は完全に消えます</b>（文字の検索・コピーはできなくなります）。", "Drag on the page to place a black box. On save, <b>that page is rasterized and whatever was under the box is gone for good</b> (text on that page is no longer searchable)."],
+  "redact.count": ["このページの墨消し: {n}", "Redactions on this page: {n}"],
+  "pages.note": ["↑↓で順番、×で削除。PDF や画像を足すとこの後ろに並びます。", "↑↓ to reorder, × to delete. Added PDFs and images go after these."],
+  addFiles: ["＋ PDF・画像を追加", "+ Add PDF / images"], splitLabel: ["分割: 抜き出すページ（例 1-3,5）", "Split: pages to extract (e.g. 1-3,5)"], splitBtn: ["このページだけ保存 ↓", "Save these pages ↓"],
+  "split.note": ["いまの並びは変えずに、指定ページだけを別ファイルとして保存します。", "Saves only the given pages as a separate file, without changing the current order."],
+  badRange: ["ページの指定を確認してください（例 1-3,5）", "Check the page range (e.g. 1-3,5)"], lastPage: ["最後の1ページは消せません", "The last page cannot be deleted"],
+  annotsN: ["注釈{n}", "{n} marks"], blankName: ["（白紙）", "(blank)"],
+  "rotate.note": ["表示中のページを90度ずつ回します。横向きスキャンの向き直しに。", "Rotates the current page in 90° steps. Fixes sideways scans."],
+  rotL: ["↺ 左へ90°", "↺ Left 90°"], rotR: ["↻ 右へ90°", "↻ Right 90°"], rotAll: ["全ページを右へ90°", "All pages right 90°"],
+  "blank.note": ["白紙ページを差し込みます。画像の貼り付けやメモ用に。", "Inserts a blank page, e.g. for images or notes."],
+  paper: ["用紙", "Paper"], "paper.same": ["表示中のページと同じ", "Same as current page"], "paper.a4": ["A4 縦", "A4 portrait"], "paper.a4l": ["A4 横", "A4 landscape"], "paper.letter": ["Letter", "Letter"],
+  where: ["位置", "Where"], "where.before": ["表示中のページの前", "Before current page"], "where.after": ["表示中のページの後", "After current page"], "where.end": ["最後", "At the end"],
+  addBlank: ["白紙を追加", "Add blank page"],
+  "crop.note": ["ページ上でドラッグして残す範囲を決め、適用します。ページ番号や透かしは残した範囲を基準に付きます。", "Drag the area to keep, then apply. Page numbers and watermarks follow the cropped area."],
+  cropApply: ["このページに適用", "Apply to this page"], cropApplyAll: ["全ページに適用", "Apply to all pages"], cropClear: ["このページを解除", "Clear this page"], cropClearAll: ["全ページを解除", "Clear all"],
+  cropDraft: ["選択中: {w}×{h}pt", "Selected: {w}×{h}pt"], cropSet: ["このページ: トリミング済み", "This page: cropped"], cropNone: ["このページ: トリミングなし", "This page: not cropped"], cropDragFirst: ["先にページ上でドラッグしてください", "Drag on the page first"],
+  "wm.note": ["全ページの中央に薄く入れます。", "Placed faintly in the centre of every page."],
+  enable: ["入れる", "On"], wmText: ["文字", "Text"], wmImage: ["画像", "Image"], wmScale: ["幅（ページに対する割合）", "Width (% of page)"],
+  "pn.note": ["全ページに付けます。{n} がページ番号、{N} が総ページ数。ベイツ番号は接頭辞と桁数で（例 ABC{n} と 6桁 → ABC000001）。", "Added to every page. {n} = page number, {N} = total. For Bates numbering use a prefix and zero padding (e.g. ABC{n} with 6 digits → ABC000001)."],
+  format: ["書式", "Format"], position: ["位置", "Position"], startAt: ["開始番号", "Start at"], digits: ["桁数（0埋め）", "Zero padding"], "digits.none": ["なし", "none"],
+  "pos.tl": ["上・左", "Top left"], "pos.tc": ["上・中央", "Top centre"], "pos.tr": ["上・右", "Top right"], "pos.bl": ["下・左", "Bottom left"], "pos.bc": ["下・中央", "Bottom centre"], "pos.br": ["下・右", "Bottom right"],
+  "form.note": ["このPDFの入力欄に記入し、「確定」で本文に焼き付けます（以後は書き換えられません）。", "Fill in the fields of this PDF and press Apply to bake them into the page (they become fixed)."],
+  "form.none": ["このPDFには入力欄（AcroForm）がありません。XFA 形式のフォームには対応していません。", "This PDF has no form fields (AcroForm). XFA forms are not supported."],
+  "form.reading": ["入力欄を読んでいます…", "Reading fields…"], "form.apply": ["確定して反映", "Apply"], "form.revert": ["元に戻す", "Revert"], "form.done": ["記入を反映しました", "Fields applied"], "form.reverted": ["元のフォームに戻しました", "Reverted to the original form"],
+  "form.unsupported": ["（この種類の欄には対応していません）", "(this field type is not supported)"],
+  "meta.note": ["保存するPDFに書き込む情報。空欄はそのままです。", "Written into the saved PDF. Empty fields are left as is."],
+  title: ["タイトル", "Title"], author: ["作成者", "Author"], subject: ["サブタイトル", "Subject"], keywords: ["キーワード", "Keywords"],
+  "meta.files": ["読み込んだファイル", "Loaded files"], pagesN: ["{n}ページ", "{n} pages"], pdfVer: ["PDF {v}", "PDF {v}"], hasForm: ["フォームあり", "has form"], wasEncrypted: ["保護を解除済み", "protection removed"],
+  "conv.note": ["PDF の各ページを PNG / JPG にします。複数ページは zip にまとめます。", "Turns pages into PNG / JPG. Multiple pages are bundled into a zip."],
+  "conv.img": ["画像 → PDF", "Images → PDF"], "conv.imgnote": ["PNG / JPG をドロップするか「＋ 追加」で選ぶと、1枚1ページのPDFとして読み込まれます。並べ替えて保存すれば画像からPDFが作れます。", "Drop PNG / JPG files or use + Add: each image becomes one page. Reorder and save to build a PDF from images."],
+  fmt: ["形式", "Format"], dpi: ["解像度", "Resolution"], scope: ["範囲", "Pages"], "scope.cur": ["表示中のページ", "Current page"], "scope.all": ["全ページ", "All pages"], "scope.range": ["指定（例 1-3,5）", "Range (e.g. 1-3,5)"],
+  convBtn: ["画像にして保存 ↓", "Save as images ↓"], converting: ["画像化 {i}/{n}", "Rendering {i}/{n}"],
+  "cmp.lossless": ["劣化なし（構造の最適化）", "Lossless (optimize structure)"], "cmp.lossless.note": ["見た目も文字もそのまま。重複データの整理と再圧縮だけなので、元から最適化済みのPDFはほとんど小さくなりません。", "Nothing changes visually. Only reorganizes and recompresses, so an already-optimized PDF barely shrinks."],
+  "cmp.raster": ["画像化（劣化あり）", "Rasterize (lossy)"], "cmp.raster.warn": ["各ページを画像に変換して作り直します。<b>文字は検索・コピーできなくなります。</b>スキャンPDFを軽くする用途向けです。", "Rebuilds every page as an image. <b>Text becomes unsearchable.</b> Meant for scanned PDFs."],
+  quality: ["画質", "Quality"], "q.low": ["軽い（粗い）", "Small (rough)"], "q.mid": ["標準", "Standard"], "q.high": ["きれい（大きめ）", "High (larger)"],
+  cmpBtn: ["劣化なしで保存 ↓", "Save lossless ↓"], cmpBtn2: ["画像化して保存 ↓", "Rasterize and save ↓"],
+  before: ["元 {a}KB → {b}KB", "{a}KB → {b}KB"],
+  "prot.note": ["保存するPDFにパスワードを付けます（AES-256）。開くパスワードだけ、権限パスワードだけ、両方、のどれでも。", "Adds a password to the saved PDF (AES-256). Open password only, permissions password only, or both."],
+  protOn: ["保存時にパスワードを付ける", "Protect on save"], userPw: ["開くパスワード", "Open password"], ownerPw: ["権限パスワード（印刷・編集の制限用）", "Permissions password (for restrictions)"],
+  noPrint: ["印刷を禁止", "Disallow printing"], noModify: ["編集を禁止", "Disallow editing"], protBtn: ["パスワードを付けて保存 ↓", "Save with password ↓"],
+  protNeed: ["パスワードをどちらか入力してください", "Enter at least one password"],
+  "prot.unlock": ["解除", "Remove"], "prot.unlocknote": ["パスワード付きPDFは読み込むときにパスワードを聞き、この中では保護が外れた状態になります。そのまま保存すればパスワードなしのPDFです。", "Password-protected PDFs ask for the password when loaded and are held unprotected here. Just save to get a PDF without a password."],
+  unlockBtn: ["保護を外して保存 ↓", "Save without password ↓"],
+  loadingQpdf: ["部品（qpdf）を読み込んでいます…", "Loading qpdf…"], qpdfFail: ["qpdf を読み込めませんでした。ネットワークを確認してください", "Could not load qpdf. Check your network"],
+  building: ["保存用のPDFを作っています…", "Building the PDF…"], saved: ["保存しました（{kb}KB）", "Saved ({kb}KB)"], saveFail: ["保存に失敗しました: {err}", "Save failed: {err}"],
+  rasterizing: ["ページを画像化しています…", "Rasterizing pages…"], optimizing: ["最適化しています…", "Optimizing…"], encrypting: ["パスワードを付けています…", "Applying password…"],
+  loadingFont: ["日本語フォントを読み込んでいます…", "Loading Japanese font…"],
+  unsaved: ["保存していない変更があります", "You have unsaved changes"],
+};
+let lang = (() => {
+  try { const v = localStorage.getItem("gp-lang"); if (v === "ja" || v === "en") return v; } catch (_) { /* 私的モード等 */ }
+  return /^ja/i.test(navigator.language || "") ? "ja" : "en";
+})();
+function t(key, vars) {
+  const s = STR[key]; let out = s ? s[lang === "ja" ? 0 : 1] : key;
+  if (vars) for (const k of Object.keys(vars)) out = out.split(`{${k}}`).join(String(vars[k]));
+  return out;
+}
+function setLang(l) {
+  lang = l; try { localStorage.setItem("gp-lang", l); } catch (_) { /* 保存できなくても動く */ }
+  applyLang();
+}
+function applyLang() {
+  document.documentElement.lang = lang;
+  for (const n of document.querySelectorAll("[data-t]")) n.textContent = t(n.dataset.t);
+  el.btnLang.textContent = lang === "ja" ? "EN" : "JA";
+  renderNav(); setFileName();
+  if (state.pages.length) { render(); } else { renderProps(); }
+}
+
+/* ───────────── 効能 ─────────────*/
+const TOOLS = [
+  { id: "text", group: "write" }, { id: "image", group: "write" }, { id: "draw", group: "write" }, { id: "shape", group: "write" }, { id: "redact", group: "write" },
+  { id: "pages", group: "page" }, { id: "rotate", group: "page" }, { id: "blank", group: "page" }, { id: "crop", group: "page" },
+  { id: "watermark", group: "finish" }, { id: "pagenum", group: "finish" }, { id: "form", group: "finish" }, { id: "meta", group: "finish" },
+  { id: "convert", group: "out" }, { id: "compress", group: "out" }, { id: "protect", group: "out" },
+];
+const DRAW_TOOLS = new Set(["text", "image", "draw", "shape", "redact", "crop"]);
+
+/* ───────────── 状態 ─────────────
+   sources: 読み込んだPDF（bytes と pdf.js / pdf-lib のドキュメント）。画像は1枚1ページのPDFに包んで同じ扱い
+   pages:   出力する順番のページ列。各ページは「どの元ファイルの何ページ目か」＋回転＋トリミング＋注釈
+   注釈の座標は PDF のユーザー空間（ポイント・原点は左下・回転前）で持つ。
+   表示との変換は pdf.js の viewport（convertToPdfPoint / convertToViewportPoint）に任せる。 */
+const state = {
+  sources: [],          // {id, name, bytes:ArrayBuffer, pdf:PDFDocumentProxy, lib:PDFDocument|null, unlocked, original, formDraft}
+  pages: [],            // {uid, srcId, index, extraRotation, crop:{x,y,w,h}|null, annots:[]}
+  current: 0,
+  tool: null,
+  selected: null,       // annot id
+  scale: 1,
+  viewport: null,
+  baseName: "document",
+  fontBytes: null,      // サブセット
+  fontFull: null,       // フル（サブセットに無い文字が出たとき）
+  fontkitFont: null,
+  pendingImage: null,
+  cropDraft: null,      // {x,y,w,h} ユーザー空間
+  shape: { kind: "rect", color: "red", width: 2 },
+  draw: { color: "black", width: 2 },
+  watermark: { enabled: false, kind: "text", text: "CONFIDENTIAL", size: 48, color: "gray", opacity: 0.3, angle: 45, image: null, scale: 0.5 },
+  pagenum: { enabled: false, fmt: "{n} / {N}", pos: "bc", start: 1, digits: 0, size: 10 },
+  encrypt: { enabled: false, user: "", owner: "", noPrint: false, noModify: false },
+  meta: { title: "", author: "", subject: "", keywords: "" },
+  convert: { fmt: "png", dpi: 150, scope: "cur", range: "" },
+};
+let uidSeq = 1;
+const uid = () => uidSeq++;
+
+/* 履歴（Ctrl+Z / Ctrl+Shift+Z）。ページ列と注釈の「形」だけを写す。
+   元PDFのバイト列・画像のバイト列・手書きの点列は共有参照のまま（変更時は新しい配列に差し替える）。上限50手 */
+const history = { past: [], future: [], limit: 50 };
+function snapshot() {
+  return { current: state.current, pages: state.pages.map((p) => ({ ...p, annots: p.annots.map((a) => ({ ...a })) })) };
+}
+function pushHistory() {
+  history.past.push(snapshot()); if (history.past.length > history.limit) history.past.shift();
+  history.future.length = 0;
+}
+function restore(snap) {
+  state.pages = snap.pages.map((p) => ({ ...p, annots: p.annots.map((a) => ({ ...a })) }));
+  state.current = Math.min(snap.current, Math.max(0, state.pages.length - 1));
+  state.selected = null;
+  render();
+}
+function undo() { if (!history.past.length) { status(t("noUndo")); return; } history.future.push(snapshot()); restore(history.past.pop()); status(t("undone")); }
+function redo() { if (!history.future.length) { status(t("noRedo")); return; } history.past.push(snapshot()); restore(history.future.pop()); status(t("redone")); }
+
+function shortcutHelp() {
+  return `<div class="row" style="margin-top:24px"><label>${t("keys.title")}</label>
+<table class="keys"><tr><td>Ctrl+Z / Ctrl+Shift+Z</td><td>${t("keys.undo")}</td></tr><tr><td>Ctrl+S</td><td>${t("keys.save")}</td></tr><tr><td>Ctrl+O</td><td>${t("keys.open")}</td></tr>
+<tr><td>Delete</td><td>${t("keys.del")}</td></tr><tr><td>${t("keys.arrow")}</td><td>${t("keys.move")}</td></tr><tr><td>${t("keys.page")}</td><td>${t("keys.pagemove")}</td></tr><tr><td>${t("keys.tools")}</td><td>${t("keys.toolsw")}</td></tr></table></div>`;
+}
+
+/* ───────────── DOM ─────────────*/
+const $ = (s) => document.querySelector(s);
+const el = {
+  drop: $("#drop"), dropbox: $("#dropbox"), pagewrap: $("#pagewrap"), cv: $("#cv"), overlay: $("#overlay"),
+  props: $("#props"), status: $("#status"), fname: $("#fname"), pagenum: $("#pagenum"), pagesize: $("#pagesize"),
+  btnSave: $("#btn-save"), btnAdd: $("#btn-add"), btnPrev: $("#btn-prev"), btnNext: $("#btn-next"), btnLang: $("#btn-lang"),
+  filePdf: $("#file-pdf"), fileImg: $("#file-img"), stage: $("#stage"), tools: $("#tools"),
+};
+
+function status(msg, ms = 2400) {
+  if (!msg) { el.status.classList.remove("show"); return; }
+  el.status.textContent = msg; el.status.classList.add("show");
+  clearTimeout(status._t); if (ms) status._t = setTimeout(() => el.status.classList.remove("show"), ms);
+}
+
+/* ───────────── 読み込み ─────────────*/
+function isPdfFile(f) { return /\.pdf$/i.test(f.name) || f.type === "application/pdf"; }
+function isImageFile(f) { return /^image\/(png|jpeg)$/.test(f.type) || /\.(png|jpe?g)$/i.test(f.name); }
+async function addFiles(files) {
+  const list = [...files].filter((f) => isPdfFile(f) || isImageFile(f));
+  if (!list.length) { status(t("pickPdf")); return; }
+  if (state.pages.length) pushHistory();
+  let added = 0, unlockedAny = false;
+  for (const f of list) {
+    if (f.size > WARN_BYTES) {
+      if (!confirm(t("bigFile", { name: f.name, mb: (f.size / 1048576).toFixed(0) }))) continue;
+    }
+    status(t("loading", { name: f.name }), 0);
+    try {
+      let bytes = await readAsArrayBuffer(f);
+      let unlocked = false;
+      if (isImageFile(f)) bytes = await imageToPdf(bytes, f.type || (/\.png$/i.test(f.name) ? "image/png" : "image/jpeg"));
+      else if (hasEncrypt(new Uint8Array(bytes))) {
+        // 保護付き。開くパスワードが要るなら聞き、qpdf で保護を外した平文を元ファイルとして扱う
+        const pw = await askPassword(bytes, f.name);
+        if (pw === null) continue;
+        bytes = (await runQpdf(bytes, ["--decrypt", `--password=${pw}`])).buffer;
+        unlocked = true;
+      }
+      await addSource(f.name, bytes, { unlocked }); added++;
+      if (unlocked) { unlockedAny = true; status(t("unlocked", { name: f.name }), 5000); }
+    } catch (e) {
+      status(t("loadFail", { name: f.name, err: e && e.message ? e.message : e }), 6000);
+      continue;
+    }
+  }
+  if (!added) { if (state.pages.length) history.past.pop(); return; }
+  el.drop.hidden = true; el.pagewrap.hidden = false; el.btnSave.hidden = false; el.btnAdd.hidden = false;
+  setFileName();
+  if (!state.tool) setTool("text");
+  if (!unlockedAny) status(t("loaded"));
+  await render();
+}
+async function addSource(name, bytes, extra = {}, { insertAt } = {}) {
+  const pdf = await pdfjsLib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
+  const id = uid();
+  const src = { id, name, bytes, pdf, lib: null, unlocked: false, original: null, formDraft: null, ...extra };
+  state.sources.push(src);
+  const entries = [];
+  for (let i = 0; i < pdf.numPages; i++) entries.push({ uid: uid(), srcId: id, index: i, extraRotation: 0, crop: null, annots: [] });
+  if (insertAt === undefined) state.pages.push(...entries); else state.pages.splice(insertAt, 0, ...entries);
+  if (state.sources.filter((s) => !s.blank).length === 1 && !src.blank) state.baseName = name.replace(/\.(pdf|png|jpe?g)$/i, "");
+  return src;
+}
+/* 画像 → 1ページのPDF。96dpi 相当で pt に直し、長辺が A3 を超えるものは縮める（座標だけ。画素は落とさない） */
+async function imageToPdf(bytes, mime) {
+  const doc = await PDFDocument.create();
+  const img = mime === "image/png" ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+  let w = img.width * 0.75, h = img.height * 0.75;
+  const k = Math.min(1, 1190 / Math.max(w, h)); w *= k; h *= k;
+  const page = doc.addPage([w, h]); page.drawImage(img, { x: 0, y: 0, width: w, height: h });
+  return (await doc.save()).buffer;
+}
+function hasEncrypt(u8) {
+  const pat = [0x2f, 0x45, 0x6e, 0x63, 0x72, 0x79, 0x70, 0x74]; // "/Encrypt"
+  outer: for (let i = 0, n = u8.length - pat.length; i <= n; i++) {
+    if (u8[i] !== 0x2f) continue;
+    for (let j = 1; j < pat.length; j++) if (u8[i + j] !== pat[j]) continue outer;
+    return true;
+  }
+  return false;
+}
+/* 開くパスワードが要るかを pdf.js に判定させ、要るなら聞く。返り値: パスワード文字列（空でもよい）／中止なら null */
+async function askPassword(bytes, name) {
+  let pw = "";
+  for (;;) {
+    try { const doc = await pdfjsLib.getDocument({ data: bytes.slice(0), password: pw, isEvalSupported: false }).promise; doc.destroy(); return pw; }
+    catch (e) {
+      if (!e || e.name !== "PasswordException") throw e;
+      if (pw) status(t("wrongPassword"), 3000);
+      const v = prompt(t("askPassword", { name }));
+      if (v === null || v === "") return null;
+      pw = v;
+    }
+  }
+}
+/* ヘッダーのファイル名。長い名前や複数ファイルで縦幅が崩れないよう1行に省略し、全文は title に */
+function setFileName() {
+  const names = state.sources.filter((s) => !s.blank).map((s) => s.name);
+  const first = names[0] || "";
+  const short = first.length > 28 ? `${first.slice(0, 18)}…${first.slice(-8)}` : first;
+  el.fname.textContent = names.length > 1 ? t("others", { name: short, n: names.length - 1 }) : short;
+  el.fname.title = names.join("\n");
+}
+function readAsArrayBuffer(file) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsArrayBuffer(file); });
+}
+
+/* ───────────── qpdf（必要なときだけ読み込む） ─────────────*/
+let qpdfMod = null, qpdfErr = "";
+async function loadQpdf() {
+  if (qpdfMod) return qpdfMod;
+  status(t("loadingQpdf"), 0);
+  try {
+    if (!window.Module) await new Promise((res, rej) => { const s = document.createElement("script"); s.src = QPDF_BASE + "qpdf.js"; s.onload = res; s.onerror = () => rej(new Error("qpdf.js")); document.head.appendChild(s); });
+    qpdfMod = await window.Module({ locateFile: (f) => QPDF_BASE + f, print: () => {}, printErr: (m) => { qpdfErr += m + "\n"; } });
+  } catch (e) { status(t("qpdfFail"), 6000); throw e; }
+  status("");
+  return qpdfMod;
+}
+async function runQpdf(input, args) {
+  const q = await loadQpdf(); qpdfErr = "";
+  q.FS.writeFile("in.pdf", new Uint8Array(input));
+  let code = 0;
+  try { code = q.callMain([...args, "in.pdf", "out.pdf"]); } catch (e) { code = e && e.status !== undefined ? e.status : 1; }
+  let out = null; try { out = q.FS.readFile("out.pdf"); } catch (_) { /* 出力なし */ }
+  try { q.FS.unlink("in.pdf"); } catch (_) { /* なし */ }
+  try { q.FS.unlink("out.pdf"); } catch (_) { /* なし */ }
+  if ((code !== 0 && code !== 3) || !out) throw new Error(qpdfErr.trim().split("\n")[0] || `qpdf exit ${code}`); // 3 = 警告つきで成功
+  return out;
+}
+
+/* ───────────── 表示 ─────────────*/
+function currentPage() { return state.pages[state.current]; }
+function sourceOf(p) { return state.sources.find((s) => s.id === p.srcId); }
+
+// 同じ canvas に描画が重なると pdf.js が例外を投げる（連打・並べ替え直後の回転など）。
+// 新しい描画が来たら前の描画を取り消し、最後の1回だけを画面に残す
+let renderTask = null;
+let renderSeq = 0;
+async function render() {
+  const p = currentPage(); if (!p) return;
+  const seq = ++renderSeq;
+  if (renderTask) { try { renderTask.cancel(); } catch (_) { /* 取り消し済み */ } renderTask = null; }
+  const src = sourceOf(p);
+  const page = await src.pdf.getPage(p.index + 1);
+  if (seq !== renderSeq) return; // すでに次の描画が始まっている
+  const rotation = (page.rotate + p.extraRotation) % 360;
+  const base = page.getViewport({ scale: 1, rotation });
+  const maxW = Math.max(240, el.stage.clientWidth - 50);
+  const scale = Math.min(maxW / base.width, 1.6);
+  const viewport = page.getViewport({ scale, rotation });
+  state.scale = scale; state.viewport = viewport;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  el.cv.width = Math.floor(viewport.width * dpr); el.cv.height = Math.floor(viewport.height * dpr);
+  el.cv.style.width = `${Math.floor(viewport.width)}px`; el.cv.style.height = `${Math.floor(viewport.height)}px`;
+  const ctx = el.cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, viewport.width, viewport.height);
+  const task = page.render({ canvasContext: ctx, viewport });
+  renderTask = task;
+  try { await task.promise; }
+  catch (e) { if (e && e.name === "RenderingCancelledException") return; throw e; }
+  finally { if (renderTask === task) renderTask = null; }
+  if (seq !== renderSeq) return;
+  el.pagenum.textContent = `${state.current + 1} / ${state.pages.length}`;
+  el.pagesize.textContent = `${Math.round(base.width)}×${Math.round(base.height)}pt${rotation ? ` ・${t("rotated", { deg: rotation })}` : ""}`;
+  el.btnPrev.disabled = state.current === 0; el.btnNext.disabled = state.current >= state.pages.length - 1;
+  renderOverlay();
+  renderProps();
+}
+
+/* 表示上の「ページの箱」（トリミング済みならその範囲）。座標は viewport のピクセル・y は下向き */
+function displayBox(vp, p) {
+  if (!p.crop) return { x: 0, y: 0, w: vp.width, h: vp.height };
+  const c = p.crop;
+  const pts = [[c.x, c.y], [c.x + c.w, c.y], [c.x, c.y + c.h], [c.x + c.w, c.y + c.h]].map(([x, y]) => vp.convertToViewportPoint(x, y));
+  const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+function isAscii(s) { return /^[\x20-\x7e\n]*$/.test(s); }
+function cssFontFor(text) { return isAscii(text) ? "Helvetica, Arial, sans-serif" : '"Noto Sans JP", sans-serif'; }
+function measureWidth(text, size) {
+  const ctx = document.createElement("canvas").getContext("2d");
+  ctx.font = `${size}px ${cssFontFor(text)}`;
+  return ctx.measureText(text || " ").width;
+}
+function pageNumberText(i) {
+  const pn = state.pagenum; let n = String(i + pn.start); if (pn.digits) n = n.padStart(pn.digits, "0");
+  return pn.fmt.split("{n}").join(n).split("{N}").join(String(state.pages.length));
+}
+/* ページ番号の配置（表示座標・拡大率 k）。返り値は文字の左端と基線 */
+function pageNumberPlace(box, tw, size, k) {
+  const pn = state.pagenum; const m = 24 * k;
+  const x = pn.pos.endsWith("l") ? box.x + m : pn.pos.endsWith("r") ? box.x + box.w - m - tw : box.x + (box.w - tw) / 2;
+  const y = pn.pos.startsWith("t") ? box.y + m + size * 0.72 : box.y + box.h - m;
+  return [x, y];
+}
+/* 透かしの配置。中心 C に幅 w・高さ h の箱を角度 θ（表示上・反時計回り）で置いたときの左下（表示座標・y 下向き） */
+function centeredAnchor(box, w, h, deg) {
+  const th = (deg * Math.PI) / 180; const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+  const bx = Math.cos(th), by = -Math.sin(th), ux = -Math.sin(th), uy = -Math.cos(th);
+  return [cx - (w / 2) * bx - (h / 2) * ux, cy - (w / 2) * by - (h / 2) * uy];
+}
+
+/* 注釈 → 画面。anchor（PDF空間・表示上の左下）を viewport で画面座標へ */
+function renderOverlay() {
+  const p = currentPage(); const vp = state.viewport; if (!p || !vp) return;
+  const O = el.overlay; O.innerHTML = "";
+  O.className = (DRAW_TOOLS.has(state.tool) ? "cross" : "") + (state.tool === "shape" ? " shape-mode" : "");
+  const k = state.scale;
+  for (const a of p.annots) {
+    let d;
+    if (a.type === "ink" || (a.type === "shape" && (a.kind === "line" || a.kind === "arrow"))) {
+      d = renderStrokeAnnot(a, vp);
+    } else {
+      if (a.type === "text") measureText(a);
+      const [vx, vy] = vp.convertToViewportPoint(a.x, a.y); // 表示上の左下
+      const w = a.w * k, h = a.h * k;
+      d = document.createElement("div");
+      d.className = `annot ${a.type}${a.kind ? " " + a.kind : ""}`;
+      d.style.left = `${vx}px`; d.style.top = `${vy - h}px`; d.style.width = `${w}px`; d.style.height = `${h}px`;
+      if (a.type === "text") {
+        d.textContent = a.text; d.style.fontSize = `${a.size * k}px`; d.style.color = COLOR_CSS[a.color]; d.style.fontFamily = cssFontFor(a.text);
+      } else if (a.type === "image") {
+        const img = document.createElement("img"); img.src = a.dataUrl; img.alt = ""; d.appendChild(img);
+      } else if (a.type === "shape" && a.kind === "rect") {
+        d.style.borderColor = COLOR_CSS[a.color]; d.style.borderWidth = `${Math.max(1, a.width * k)}px`;
+      }
+      if (a.type !== "text") { const hd = document.createElement("div"); hd.className = "handle"; d.appendChild(hd); }
+    }
+    d.dataset.id = a.id; if (a.id === state.selected) d.classList.add("selected");
+    O.appendChild(d);
+  }
+  // トリミング（適用済み・選択中）
+  if (p.crop) { const b = displayBox(vp, p); const d = document.createElement("div"); d.className = "prev crop"; d.style.left = `${b.x}px`; d.style.top = `${b.y}px`; d.style.width = `${b.w}px`; d.style.height = `${b.h}px`; O.appendChild(d); }
+  if (state.tool === "crop" && state.cropDraft) { const b = displayBox(vp, { crop: state.cropDraft }); const d = document.createElement("div"); d.className = "prev cropdraft"; d.style.left = `${b.x}px`; d.style.top = `${b.y}px`; d.style.width = `${b.w}px`; d.style.height = `${b.h}px`; O.appendChild(d); }
+  // 透かし・ページ番号のプレビュー
+  const box = displayBox(vp, p);
+  const wm = state.watermark;
+  if (wm.enabled && (wm.kind === "text" ? wm.text : wm.image)) {
+    const d = document.createElement("div"); d.className = "prev wm"; d.style.opacity = wm.opacity; d.style.transformOrigin = "0 100%"; d.style.transform = `rotate(${-wm.angle}deg)`;
+    let w, h;
+    if (wm.kind === "text") { const s = wm.size * k; w = measureWidth(wm.text, s); h = s * 0.72; d.textContent = wm.text; d.style.fontSize = `${s}px`; d.style.color = COLOR_CSS[wm.color]; d.style.fontFamily = cssFontFor(wm.text); d.style.height = `${h}px`; d.style.lineHeight = `${s * 0.95}px`; }
+    else { w = box.w * wm.scale; h = w * wm.image.height / wm.image.width; const img = document.createElement("img"); img.src = wm.image.dataUrl; img.alt = ""; img.style.width = `${w}px`; img.style.height = `${h}px`; img.style.display = "block"; d.appendChild(img); }
+    const [bx, by] = centeredAnchor(box, w, h, wm.angle);
+    d.style.left = `${bx}px`; d.style.top = `${by - h}px`; d.style.width = `${w}px`;
+    O.appendChild(d);
+  }
+  if (state.pagenum.enabled) {
+    const s = state.pagenum.size * k; const text = pageNumberText(state.current); const tw = measureWidth(text, s);
+    const [x, y] = pageNumberPlace(box, tw, s, k);
+    const d = document.createElement("div"); d.className = "prev pn"; d.textContent = text; d.style.fontSize = `${s}px`; d.style.fontFamily = cssFontFor(text); d.style.color = "#000";
+    d.style.left = `${x}px`; d.style.top = `${y - s * 0.78}px`; d.style.height = `${s}px`; d.style.lineHeight = `${s}px`;
+    O.appendChild(d);
+  }
+}
+/* 手書き・直線・矢印は SVG で。表示座標で bbox を切り、その中に線を描く */
+function renderStrokeAnnot(a, vp) {
+  const pts = (a.type === "ink" ? a.pts : [[a.x1, a.y1], [a.x2, a.y2]]).map(([x, y]) => vp.convertToViewportPoint(x, y));
+  const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+  const pad = 8, x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad, w = Math.max(...xs) - Math.min(...xs) + pad * 2, h = Math.max(...ys) - Math.min(...ys) + pad * 2;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", `annot ${a.type}`); svg.setAttribute("viewBox", `${x0} ${y0} ${w} ${h}`);
+  svg.style.left = `${x0}px`; svg.style.top = `${y0}px`; svg.style.width = `${w}px`; svg.style.height = `${h}px`;
+  const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ") + (a.type === "shape" && a.kind === "arrow" ? arrowHeadPath(pts[0], pts[1], Math.max(8, a.width * 4) * state.scale) : "");
+  for (const cls of ["vis", "hit"]) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path"); path.setAttribute("d", d); path.setAttribute("class", cls);
+    if (cls === "vis") { path.setAttribute("stroke", COLOR_CSS[a.color]); path.setAttribute("stroke-width", Math.max(1, a.width * state.scale)); }
+    svg.appendChild(path);
+  }
+  return svg;
+}
+function arrowHeadPath([x1, y1], [x2, y2], len) {
+  const ang = Math.atan2(y2 - y1, x2 - x1);
+  const p = (d) => `${(x2 - len * Math.cos(ang + d)).toFixed(1)} ${(y2 - len * Math.sin(ang + d)).toFixed(1)}`;
+  return ` M${p(0.5)} L${x2.toFixed(1)} ${y2.toFixed(1)} L${p(-0.5)}`;
+}
+
+/* ───────────── 効能の切り替え・右パネル ─────────────*/
+function renderNav() {
+  el.tools.innerHTML = "";
+  let g = null;
+  TOOLS.forEach((tl, i) => {
+    if (tl.group !== g) { g = tl.group; const h = document.createElement("div"); h.className = "grp"; h.textContent = t("group." + g); el.tools.appendChild(h); }
+    const b = document.createElement("button"); b.dataset.tool = tl.id; b.setAttribute("aria-pressed", String(state.tool === tl.id));
+    b.innerHTML = `<span class="no">${String(i + 1).padStart(2, "0")}</span><span>${t("tool." + tl.id)}<span class="sub">${t("tool." + tl.id + ".sub")}</span></span>`;
+    b.addEventListener("click", () => { if (state.pages.length) setTool(tl.id); else status(t("loadFirst")); });
+    el.tools.appendChild(b);
+  });
+}
+function setTool(tl) {
+  state.tool = tl; state.selected = null;
+  for (const b of el.tools.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.tool === tl));
+  renderOverlay(); renderProps();
+}
+const toolNo = (id) => String(TOOLS.findIndex((x) => x.id === id) + 1).padStart(2, "0");
+const opt = (v, label, cur) => `<option value="${v}"${String(v) === String(cur) ? " selected" : ""}>${label}</option>`;
+const colorSelect = (id, cur, keys = ["black", "red", "blue"]) => `<select id="${id}">${keys.map((c) => opt(c, t("c." + c), cur)).join("")}</select>`;
+function bind(id, ev, fn) { const n = $(id); if (n) n.addEventListener(ev, fn); }
+function formatKb(n) { return (n / 1024).toFixed(0); }
+
+function renderProps() {
+  const p = currentPage();
+  const P = el.props;
+  if (!p) { P.innerHTML = `<h2>${t("help.title")}</h2><p>${t("help.body")}</p>${shortcutHelp()}`; return; }
+  const sel = p.annots.find((a) => a.id === state.selected);
+  const delBtn = sel ? `<div class="row btns"><button id="p-del">${t("del")}</button></div>` : "";
+  const T = state.tool;
+  const head = (id) => `<h2>${toolNo(id)} ${t("tool." + id)}</h2>`;
+
+  if (T === "text") {
+    P.innerHTML = `${head(T)}<p class="note">${t("text.note")}</p>
+      ${sel && sel.type === "text" ? `
+      <div class="row"><label>${t("content")}</label><textarea id="p-text">${escapeHtml(sel.text)}</textarea></div>
+      <div class="row two"><div><label>${t("size")}</label><input id="p-size" type="number" min="6" max="96" value="${sel.size}"></div><div><label>${t("color")}</label>${colorSelect("p-color", sel.color)}</div></div>
+      ${delBtn}` : `<p class="note mono">${t("none")}</p>`}
+      <p class="note">${t("text.note2")}</p>`;
+    if (sel && sel.type === "text") {
+      bind("#p-text", "focus", () => pushHistory());
+      bind("#p-text", "input", (e) => { sel.text = e.target.value; measureText(sel); renderOverlay(); });
+      bind("#p-size", "change", (e) => { pushHistory(); sel.size = clamp(+e.target.value || 12, 6, 96); measureText(sel); renderOverlay(); });
+      bind("#p-color", "change", (e) => { pushHistory(); sel.color = e.target.value; renderOverlay(); });
+      $("#p-text").focus();
+    }
+  } else if (T === "image") {
+    P.innerHTML = `${head(T)}<p class="note">${t("image.note")}</p>
+      <div class="row btns"><button id="p-pick">${t("pickImage")}</button></div>
+      <div class="row"><span class="mono note">${state.pendingImage ? t("clickToPlace", { name: escapeHtml(state.pendingImage.name) }) : t("notPicked")}</span></div>
+      ${sel && sel.type === "image" ? delBtn : ""}`;
+    bind("#p-pick", "click", () => el.fileImg.click());
+  } else if (T === "draw") {
+    const d = state.draw;
+    P.innerHTML = `${head(T)}<p class="note">${t("draw.note")}</p>
+      <div class="row two"><div><label>${t("color")}</label>${colorSelect("p-color", sel && sel.type === "ink" ? sel.color : d.color)}</div><div><label>${t("width")}</label><input id="p-width" type="number" min="1" max="20" value="${sel && sel.type === "ink" ? sel.width : d.width}"></div></div>
+      ${sel && sel.type === "ink" ? delBtn : ""}`;
+    bind("#p-color", "change", (e) => { if (sel && sel.type === "ink") { pushHistory(); sel.color = e.target.value; renderOverlay(); } else d.color = e.target.value; });
+    bind("#p-width", "change", (e) => { const v = clamp(+e.target.value || 2, 1, 20); if (sel && sel.type === "ink") { pushHistory(); sel.width = v; renderOverlay(); } else d.width = v; });
+  } else if (T === "shape") {
+    const s = state.shape; const cur = sel && sel.type === "shape" ? sel : null;
+    P.innerHTML = `${head(T)}<p class="note">${t("shape.note")}</p>
+      <div class="row"><label>${t("kind")}</label><select id="p-kind">${["rect", "highlight", "white", "line", "arrow"].map((k) => opt(k, t("k." + k), cur ? cur.kind : s.kind)).join("")}</select></div>
+      <div class="row two"><div><label>${t("color")}</label>${colorSelect("p-color", cur ? cur.color : s.color)}</div><div><label>${t("width")}</label><input id="p-width" type="number" min="1" max="20" value="${cur ? cur.width : s.width}"></div></div>
+      ${cur ? delBtn : ""}`;
+    bind("#p-kind", "change", (e) => { s.kind = e.target.value; });
+    bind("#p-color", "change", (e) => { if (cur) { pushHistory(); cur.color = e.target.value; renderOverlay(); } else s.color = e.target.value; });
+    bind("#p-width", "change", (e) => { const v = clamp(+e.target.value || 2, 1, 20); if (cur) { pushHistory(); cur.width = v; renderOverlay(); } else s.width = v; });
+    if (cur) $("#p-kind").disabled = true;
+  } else if (T === "redact") {
+    const n = p.annots.filter((a) => a.type === "redact").length;
+    P.innerHTML = `${head(T)}<div class="warn">${t("redact.note")}</div><p class="note mono" style="margin-top:16px">${t("redact.count", { n })}</p>${sel && sel.type === "redact" ? delBtn : ""}`;
+  } else if (T === "pages") {
+    P.innerHTML = `${head(T)}<p class="note">${t("pages.note")}</p>
+      <div class="row btns"><button id="p-add">${t("addFiles")}</button></div>
+      <div class="row"><div id="thumbs"></div></div>
+      <div class="row"><label>${t("splitLabel")}</label><input id="p-range" type="text" placeholder="1-3,5">
+        <div class="btns" style="margin-top:8px"><button id="p-split">${t("splitBtn")}</button></div>
+        <p class="note">${t("split.note")}</p></div>`;
+    bind("#p-add", "click", () => el.filePdf.click());
+    bind("#p-split", "click", () => {
+      const idx = parseRange($("#p-range").value, state.pages.length);
+      if (!idx.length) { status(t("badRange")); return; }
+      exportPdf({ only: idx, suffix: "_split" });
+    });
+    renderThumbs();
+  } else if (T === "rotate") {
+    P.innerHTML = `${head(T)}<p class="note">${t("rotate.note")}</p>
+      <div class="row btns"><button id="p-rl">${t("rotL")}</button><button id="p-rr">${t("rotR")}</button></div>
+      <div class="row btns"><button id="p-rall">${t("rotAll")}</button></div>`;
+    bind("#p-rl", "click", () => rotate(-90, false)); bind("#p-rr", "click", () => rotate(90, false)); bind("#p-rall", "click", () => rotate(90, true));
+  } else if (T === "blank") {
+    P.innerHTML = `${head(T)}<p class="note">${t("blank.note")}</p>
+      <div class="row"><label>${t("paper")}</label><select id="p-paper">${opt("same", t("paper.same"))}${opt("a4", t("paper.a4"))}${opt("a4l", t("paper.a4l"))}${opt("letter", t("paper.letter"))}</select></div>
+      <div class="row"><label>${t("where")}</label><select id="p-where">${opt("after", t("where.after"))}${opt("before", t("where.before"))}${opt("end", t("where.end"))}</select></div>
+      <div class="row btns"><button id="p-blank" class="primary">${t("addBlank")}</button></div>`;
+    bind("#p-blank", "click", () => addBlankPage($("#p-paper").value, $("#p-where").value));
+  } else if (T === "crop") {
+    const d = state.cropDraft;
+    P.innerHTML = `${head(T)}<p class="note">${t("crop.note")}</p>
+      <p class="note mono">${d ? t("cropDraft", { w: Math.round(d.w), h: Math.round(d.h) }) : ""}<br>${p.crop ? t("cropSet") : t("cropNone")}</p>
+      <div class="row btns"><button id="p-crop1" class="primary"${d ? "" : " disabled"}>${t("cropApply")}</button><button id="p-cropall"${d ? "" : " disabled"}>${t("cropApplyAll")}</button></div>
+      <div class="row btns"><button id="p-clear1">${t("cropClear")}</button><button id="p-clearall">${t("cropClearAll")}</button></div>`;
+    bind("#p-crop1", "click", () => applyCrop(false)); bind("#p-cropall", "click", () => applyCrop(true));
+    bind("#p-clear1", "click", () => { pushHistory(); p.crop = null; state.cropDraft = null; renderOverlay(); renderProps(); });
+    bind("#p-clearall", "click", () => { pushHistory(); for (const q of state.pages) q.crop = null; state.cropDraft = null; renderOverlay(); renderProps(); });
+  } else if (T === "watermark") {
+    const w = state.watermark;
+    P.innerHTML = `${head(T)}<p class="note">${t("wm.note")}</p>
+      <div class="row"><label class="chk"><input id="p-on" type="checkbox"${w.enabled ? " checked" : ""}> ${t("enable")}</label></div>
+      <div class="row"><label>${t("kind")}</label><select id="p-kind">${opt("text", t("wmText"), w.kind)}${opt("image", t("wmImage"), w.kind)}</select></div>
+      ${w.kind === "text" ? `<div class="row"><label>${t("wmText")}</label><input id="p-text" type="text" value="${escapeHtml(w.text)}"></div>
+      <div class="row two"><div><label>${t("size")}</label><input id="p-size" type="number" min="8" max="300" value="${w.size}"></div><div><label>${t("color")}</label>${colorSelect("p-color", w.color, ["gray", "black", "red", "blue"])}</div></div>`
+      : `<div class="row btns"><button id="p-pick">${t("pickImage")}</button> <span class="mono note">${w.image ? escapeHtml(w.image.name) : t("notPicked")}</span></div>
+      <div class="row"><label>${t("wmScale")}: ${Math.round(w.scale * 100)}%</label><input id="p-scale" type="range" min="10" max="100" value="${Math.round(w.scale * 100)}"></div>`}
+      <div class="row two"><div><label>${t("opacity")}: ${Math.round(w.opacity * 100)}%</label><input id="p-op" type="range" min="5" max="100" value="${Math.round(w.opacity * 100)}"></div><div><label>${t("angle")}</label><select id="p-angle">${[0, 30, 45, 90].map((a) => opt(a, `${a}°`, w.angle)).join("")}</select></div></div>`;
+    bind("#p-on", "change", (e) => { w.enabled = e.target.checked; renderOverlay(); });
+    bind("#p-kind", "change", (e) => { w.kind = e.target.value; renderOverlay(); renderProps(); });
+    bind("#p-text", "input", (e) => { w.text = e.target.value; renderOverlay(); });
+    bind("#p-size", "change", (e) => { w.size = clamp(+e.target.value || 48, 8, 300); renderOverlay(); });
+    bind("#p-color", "change", (e) => { w.color = e.target.value; renderOverlay(); });
+    bind("#p-scale", "input", (e) => { w.scale = +e.target.value / 100; renderOverlay(); });
+    bind("#p-op", "input", (e) => { w.opacity = +e.target.value / 100; renderOverlay(); });
+    bind("#p-angle", "change", (e) => { w.angle = +e.target.value; renderOverlay(); });
+    bind("#p-pick", "click", () => { state.imageTarget = "watermark"; el.fileImg.click(); });
+  } else if (T === "pagenum") {
+    const n = state.pagenum;
+    P.innerHTML = `${head(T)}<p class="note">${t("pn.note")}</p>
+      <div class="row"><label class="chk"><input id="p-on" type="checkbox"${n.enabled ? " checked" : ""}> ${t("enable")}</label></div>
+      <div class="row"><label>${t("format")}</label><input id="p-fmt" type="text" value="${escapeHtml(n.fmt)}"></div>
+      <div class="row"><label>${t("position")}</label><select id="p-pos">${["bc", "br", "bl", "tc", "tr", "tl"].map((k) => opt(k, t("pos." + k), n.pos)).join("")}</select></div>
+      <div class="row two"><div><label>${t("startAt")}</label><input id="p-start" type="number" min="0" value="${n.start}"></div><div><label>${t("digits")}</label><select id="p-digits">${opt(0, t("digits.none"), n.digits)}${[3, 4, 5, 6].map((d) => opt(d, d, n.digits)).join("")}</select></div></div>
+      <div class="row"><label>${t("size")}</label><input id="p-size" type="number" min="6" max="36" value="${n.size}"></div>`;
+    bind("#p-on", "change", (e) => { n.enabled = e.target.checked; renderOverlay(); });
+    bind("#p-fmt", "input", (e) => { n.fmt = e.target.value; renderOverlay(); });
+    bind("#p-pos", "change", (e) => { n.pos = e.target.value; renderOverlay(); });
+    bind("#p-start", "change", (e) => { n.start = Math.max(0, Math.floor(+e.target.value || 0)); renderOverlay(); });
+    bind("#p-digits", "change", (e) => { n.digits = +e.target.value; renderOverlay(); });
+    bind("#p-size", "change", (e) => { n.size = clamp(+e.target.value || 10, 6, 36); renderOverlay(); });
+  } else if (T === "form") {
+    P.innerHTML = `${head(T)}<p class="note">${t("form.note")}</p><p class="note mono" id="p-formbody">${t("form.reading")}</p>`;
+    renderFormFields(p);
+  } else if (T === "meta") {
+    const m = state.meta;
+    P.innerHTML = `${head(T)}<p class="note">${t("meta.note")}</p>
+      ${["title", "author", "subject", "keywords"].map((k) => `<div class="row"><label>${t(k)}</label><input id="p-${k}" type="text" value="${escapeHtml(m[k])}"></div>`).join("")}
+      <h3>${t("meta.files")}</h3><ul class="plain" id="p-files"></ul>`;
+    for (const k of ["title", "author", "subject", "keywords"]) bind(`#p-${k}`, "input", (e) => { m[k] = e.target.value; });
+    renderFileInfo();
+  } else if (T === "convert") {
+    const c = state.convert;
+    P.innerHTML = `${head(T)}<p class="note">${t("conv.note")}</p>
+      <div class="row two"><div><label>${t("fmt")}</label><select id="p-fmt">${opt("png", "PNG", c.fmt)}${opt("jpg", "JPG", c.fmt)}</select></div><div><label>${t("dpi")}</label><select id="p-dpi">${[72, 150, 300].map((d) => opt(d, `${d}dpi`, c.dpi)).join("")}</select></div></div>
+      <div class="row"><label>${t("scope")}</label><select id="p-scope">${opt("cur", t("scope.cur"), c.scope)}${opt("all", t("scope.all"), c.scope)}${opt("range", t("scope.range"), c.scope)}</select></div>
+      <div class="row"${c.scope === "range" ? "" : " hidden"}><input id="p-range" type="text" placeholder="1-3,5" value="${escapeHtml(c.range)}"></div>
+      <div class="row btns"><button id="p-go" class="primary">${t("convBtn")}</button></div>
+      <h3>${t("conv.img")}</h3><p class="note">${t("conv.imgnote")}</p><div class="row btns"><button id="p-add">${t("addFiles")}</button></div>`;
+    bind("#p-fmt", "change", (e) => { c.fmt = e.target.value; }); bind("#p-dpi", "change", (e) => { c.dpi = +e.target.value; });
+    bind("#p-scope", "change", (e) => { c.scope = e.target.value; renderProps(); }); bind("#p-range", "input", (e) => { c.range = e.target.value; });
+    bind("#p-go", "click", () => exportImages()); bind("#p-add", "click", () => el.filePdf.click());
+  } else if (T === "compress") {
+    P.innerHTML = `${head(T)}
+      <h3 style="margin-top:0;border:0;padding-top:0">${t("cmp.lossless")}</h3><p class="note">${t("cmp.lossless.note")}</p>
+      <div class="row btns"><button id="p-opt" class="primary">${t("cmpBtn")}</button></div>
+      <h3>${t("cmp.raster")}</h3><div class="warn">${t("cmp.raster.warn")}</div>
+      <div class="row two" style="margin-top:16px"><div><label>${t("quality")}</label><select id="p-q">${opt(0.5, t("q.low"), 0.7)}${opt(0.7, t("q.mid"), 0.7)}${opt(0.85, t("q.high"), 0.7)}</select></div><div><label>${t("dpi")}</label><select id="p-dpi">${opt(1, "100dpi", 1.5)}${opt(1.5, "150dpi", 1.5)}${opt(2, "200dpi", 1.5)}</select></div></div>
+      <div class="row btns"><button id="p-compress">${t("cmpBtn2")}</button></div>
+      <p class="note" id="p-result"></p>`;
+    bind("#p-opt", "click", () => exportOptimized());
+    bind("#p-compress", "click", () => exportCompressed(+$("#p-q").value, +$("#p-dpi").value));
+  } else if (T === "protect") {
+    const e = state.encrypt;
+    P.innerHTML = `${head(T)}<p class="note">${t("prot.note")}</p>
+      <div class="row"><label class="chk"><input id="p-on" type="checkbox"${e.enabled ? " checked" : ""}> ${t("protOn")}</label></div>
+      <div class="row"><label>${t("userPw")}</label><input id="p-user" type="password" autocomplete="new-password" value="${escapeHtml(e.user)}"></div>
+      <div class="row"><label>${t("ownerPw")}</label><input id="p-owner" type="password" autocomplete="new-password" value="${escapeHtml(e.owner)}"></div>
+      <div class="row"><label class="chk"><input id="p-noprint" type="checkbox"${e.noPrint ? " checked" : ""}> ${t("noPrint")}</label><label class="chk"><input id="p-nomod" type="checkbox"${e.noModify ? " checked" : ""}> ${t("noModify")}</label></div>
+      <div class="row btns"><button id="p-go" class="primary">${t("protBtn")}</button></div>
+      <h3>${t("prot.unlock")}</h3><p class="note">${t("prot.unlocknote")}</p>
+      <div class="row btns"><button id="p-unlock">${t("unlockBtn")}</button></div>`;
+    bind("#p-on", "change", (x) => { e.enabled = x.target.checked; });
+    bind("#p-user", "input", (x) => { e.user = x.target.value; }); bind("#p-owner", "input", (x) => { e.owner = x.target.value; });
+    bind("#p-noprint", "change", (x) => { e.noPrint = x.target.checked; }); bind("#p-nomod", "change", (x) => { e.noModify = x.target.checked; });
+    bind("#p-go", "click", () => { if (!e.user && !e.owner) { status(t("protNeed")); return; } e.enabled = true; $("#p-on").checked = true; exportPdf({ suffix: "_protected" }); });
+    bind("#p-unlock", "click", () => exportPdf({ suffix: "_unlocked", encrypt: false }));
+  }
+  if (sel) bind("#p-del", "click", () => removeAnnot(sel.id));
+}
+
+function renderThumbs() {
+  const box = $("#thumbs"); if (!box) return;
+  box.innerHTML = "";
+  state.pages.forEach((p, i) => {
+    const d = document.createElement("div"); d.className = `thumb${i === state.current ? " current" : ""}`;
+    const c = document.createElement("canvas"); d.appendChild(c);
+    const meta = document.createElement("div"); meta.className = "meta";
+    const src = sourceOf(p);
+    meta.innerHTML = `<b>${i + 1}</b>${escapeHtml(src.blank ? t("blankName") : src.name)} p.${p.index + 1}${p.annots.length ? ` ・${t("annotsN", { n: p.annots.length })}` : ""}
+      <div class="ops"><button data-op="up"${i === 0 ? " disabled" : ""}>↑</button><button data-op="down"${i === state.pages.length - 1 ? " disabled" : ""}>↓</button><button data-op="del">×</button></div>`;
+    d.appendChild(meta);
+    d.addEventListener("click", (e) => {
+      const op = e.target.dataset && e.target.dataset.op;
+      if (op === "up") movePage(i, i - 1); else if (op === "down") movePage(i, i + 1); else if (op === "del") deletePage(i);
+      else { state.current = i; render(); }
+    });
+    box.appendChild(d);
+    drawThumb(c, p);
+  });
+}
+async function drawThumb(c, p) {
+  const src = sourceOf(p); const page = await src.pdf.getPage(p.index + 1);
+  const rotation = (page.rotate + p.extraRotation) % 360;
+  const vp = page.getViewport({ scale: 64 / page.getViewport({ scale: 1, rotation }).width, rotation });
+  c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+  const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+}
+function movePage(from, to) {
+  if (to < 0 || to >= state.pages.length) return;
+  pushHistory();
+  const [p] = state.pages.splice(from, 1); state.pages.splice(to, 0, p);
+  if (state.current === from) state.current = to; else if (state.current === to) state.current = from;
+  render();
+}
+function deletePage(i) {
+  if (state.pages.length === 1) { status(t("lastPage")); return; }
+  pushHistory();
+  state.pages.splice(i, 1);
+  if (state.current >= state.pages.length) state.current = state.pages.length - 1;
+  render();
+}
+function rotate(deg, all) {
+  pushHistory();
+  const targets = all ? state.pages : [currentPage()];
+  for (const p of targets) p.extraRotation = ((p.extraRotation + deg) % 360 + 360) % 360;
+  render();
+}
+function parseRange(text, n) {
+  const out = new Set();
+  for (const part of String(text).split(/[,、\s]+/).filter(Boolean)) {
+    const m = part.match(/^(\d+)(?:-(\d+))?$/); if (!m) return [];
+    const a = +m[1], b = m[2] ? +m[2] : a;
+    for (let i = Math.min(a, b); i <= Math.max(a, b); i++) if (i >= 1 && i <= n) out.add(i - 1);
+  }
+  return [...out].sort((x, y) => x - y);
+}
+/* 白紙ページ: サイズごとに1つの空PDFを作って元ファイル扱いにし、ページ列に差し込む */
+async function addBlankPage(paper, where) {
+  const cur = currentPage();
+  let size;
+  if (paper === "a4") size = A4; else if (paper === "a4l") size = [A4[1], A4[0]]; else if (paper === "letter") size = LETTER;
+  else { const pg = await sourceOf(cur).pdf.getPage(cur.index + 1); const v = pg.getViewport({ scale: 1, rotation: (pg.rotate + cur.extraRotation) % 360 }); size = [v.width, v.height]; }
+  size = size.map((v) => Math.round(v * 100) / 100);
+  const key = `${size[0]}x${size[1]}`;
+  let src = state.sources.find((s) => s.blank === key);
+  pushHistory();
+  const at = where === "before" ? state.current : where === "after" ? state.current + 1 : state.pages.length;
+  if (!src) {
+    const doc = await PDFDocument.create(); doc.addPage(size);
+    src = await addSource(t("blankName"), (await doc.save()).buffer, { blank: key }, { insertAt: at });
+  } else {
+    state.pages.splice(at, 0, { uid: uid(), srcId: src.id, index: 0, extraRotation: 0, crop: null, annots: [] });
+  }
+  state.current = at; state.selected = null;
+  render();
+}
+function applyCrop(all) {
+  const d = state.cropDraft; if (!d) { status(t("cropDragFirst")); return; }
+  pushHistory();
+  for (const q of all ? state.pages : [currentPage()]) q.crop = { ...d };
+  state.cropDraft = null;
+  renderOverlay(); renderProps();
+}
+
+/* ───────────── フォーム ─────────────*/
+function fieldKind(f) {
+  const n = f.constructor && f.constructor.name;
+  if (f instanceof PDFLib.PDFTextField) return "text"; if (f instanceof PDFLib.PDFCheckBox) return "check";
+  if (f instanceof PDFLib.PDFRadioGroup) return "radio"; if (f instanceof PDFLib.PDFDropdown) return "dropdown"; if (f instanceof PDFLib.PDFOptionList) return "list";
+  return n || "other";
+}
+async function renderFormFields(p) {
+  const src = sourceOf(p);
+  const body = $("#p-formbody"); if (!body) return;
+  let fields = [];
+  try { const lib = await libOf(src); fields = lib.getForm().getFields(); } catch (_) { fields = []; }
+  if (state.tool !== "form" || currentPage() !== p) return;
+  if (!fields.length) {
+    body.textContent = t("form.none");
+    if (src.original) { body.insertAdjacentHTML("afterend", `<div class="row btns"><button id="p-revert">${t("form.revert")}</button></div>`); bind("#p-revert", "click", () => revertForm(src)); }
+    return;
+  }
+  const draft = src.formDraft || (src.formDraft = {});
+  const rows = fields.map((f, i) => {
+    const name = f.getName(); const kind = fieldKind(f); const v = draft[name];
+    const label = `<b>${escapeHtml(name)}</b>`;
+    if (kind === "text") return `<div class="field">${label}${f.isMultiline() ? `<textarea data-i="${i}">${escapeHtml(v ?? f.getText() ?? "")}</textarea>` : `<input type="text" data-i="${i}" value="${escapeHtml(v ?? f.getText() ?? "")}">`}</div>`;
+    if (kind === "check") return `<div class="field"><label class="chk"><input type="checkbox" data-i="${i}"${(v ?? f.isChecked()) ? " checked" : ""}> ${escapeHtml(name)}</label></div>`;
+    if (kind === "radio" || kind === "dropdown" || kind === "list") {
+      const cur = v ?? (kind === "list" ? f.getSelected() : f.getSelected());
+      const curArr = Array.isArray(cur) ? cur : cur ? [cur] : [];
+      return `<div class="field">${label}<select data-i="${i}"${kind === "list" ? " multiple" : ""}>${kind !== "list" ? `<option value=""></option>` : ""}${f.getOptions().map((o) => `<option value="${escapeHtml(o)}"${curArr.includes(o) ? " selected" : ""}>${escapeHtml(o)}</option>`).join("")}</select></div>`;
+    }
+    return `<div class="field">${label}<span class="note">${t("form.unsupported")}</span></div>`;
+  });
+  body.outerHTML = `<div id="p-formbody">${rows.join("")}</div><div class="row btns" style="margin-top:16px"><button id="p-apply" class="primary">${t("form.apply")}</button>${src.original ? `<button id="p-revert">${t("form.revert")}</button>` : ""}</div>`;
+  for (const n of document.querySelectorAll("#p-formbody [data-i]")) {
+    n.addEventListener("input", () => {
+      const f = fields[+n.dataset.i]; const kind = fieldKind(f);
+      draft[f.getName()] = kind === "check" ? n.checked : kind === "list" ? [...n.selectedOptions].map((o) => o.value) : n.value;
+    });
+  }
+  bind("#p-apply", "click", () => applyForm(src));
+  bind("#p-revert", "click", () => revertForm(src));
+}
+/* 記入内容を元PDFに焼き付ける（flatten）。元のバイト列は残しておき「元に戻す」で戻せる */
+async function applyForm(src) {
+  const draft = src.formDraft || {};
+  try {
+    status(t("building"), 0);
+    const doc = await PDFDocument.load(src.bytes, { ignoreEncryption: true, updateMetadata: false });
+    doc.registerFontkit(fontkit);
+    const form = doc.getForm();
+    let needJp = false;
+    for (const f of form.getFields()) {
+      const name = f.getName(); if (!(name in draft)) continue;
+      const v = draft[name]; const kind = fieldKind(f);
+      if (kind === "text") { f.setText(String(v)); if (!isAscii(String(v))) needJp = true; }
+      else if (kind === "check") { v ? f.check() : f.uncheck(); }
+      else if (kind === "radio" || kind === "dropdown") { if (v) f.select(String(v)); else if (kind === "dropdown") f.clear(); }
+      else if (kind === "list") { f.select(Array.isArray(v) ? v : [v]); }
+    }
+    if (needJp) { const bytes = await fontFor(Object.values(draft).map(String).join("")); form.updateFieldAppearances(await doc.embedFont(bytes, { subset: true })); }
+    else form.updateFieldAppearances();
+    form.flatten({ updateFieldAppearances: false });
+    const out = (await doc.save()).buffer;
+    if (!src.original) src.original = src.bytes;
+    src.bytes = out; src.lib = null; src.pdf = await pdfjsLib.getDocument({ data: out.slice(0), isEvalSupported: false }).promise; src.formDraft = null;
+    status(t("form.done"));
+    render();
+  } catch (e) { status(t("saveFail", { err: e && e.message ? e.message : e }), 8000); }
+}
+async function revertForm(src) {
+  if (!src.original) return;
+  src.bytes = src.original; src.original = null; src.lib = null; src.formDraft = null;
+  src.pdf = await pdfjsLib.getDocument({ data: src.bytes.slice(0), isEvalSupported: false }).promise;
+  status(t("form.reverted")); render();
+}
+async function renderFileInfo() {
+  const ul = $("#p-files"); if (!ul) return;
+  const items = [];
+  for (const s of state.sources) {
+    if (s.blank) continue;
+    let info = {};
+    try { info = (await s.pdf.getMetadata()).info || {}; } catch (_) { /* 無くてよい */ }
+    const bits = [t("pagesN", { n: s.pdf.numPages }), `${formatKb(s.bytes.byteLength)}KB`];
+    if (info.PDFFormatVersion) bits.push(t("pdfVer", { v: info.PDFFormatVersion })); if (info.IsAcroFormPresent) bits.push(t("hasForm")); if (s.unlocked) bits.push(t("wasEncrypted"));
+    if (info.Producer) bits.push(escapeHtml(String(info.Producer).slice(0, 40)));
+    items.push(`<li><span>${escapeHtml(s.name)}</span><br><span class="mono note">${bits.join(" ・ ")}</span></li>`);
+  }
+  if (state.tool === "meta" && $("#p-files")) $("#p-files").innerHTML = items.join("");
+  // タイトル等が空なら最初のファイルの値を入れておく
+  const first = state.sources.find((s) => !s.blank);
+  if (first && !state.meta._filled) {
+    try { const lib = await libOf(first); state.meta._filled = true;
+      for (const [k, fn] of [["title", "getTitle"], ["author", "getAuthor"], ["subject", "getSubject"], ["keywords", "getKeywords"]]) { if (!state.meta[k]) { const v = lib[fn](); if (v) { state.meta[k] = v; const n = $(`#p-${k}`); if (n) n.value = v; } } }
+    } catch (_) { /* 読めなければ空のまま */ }
+  }
+}
+
+/* ───────────── 注釈の操作 ─────────────*/
+function measureText(a) {
+  // 表示上の幅・高さ（pt）。改行ごとに 1.2 行送り
+  const lines = a.text.split("\n");
+  a.w = Math.max(a.size, ...lines.map((l) => measureWidth(l, a.size)));
+  a.h = a.size * 1.2 * lines.length;
+}
+function addTextAt(vx, vy) {
+  const p = currentPage(); pushHistory();
+  const a = { id: uid(), type: "text", text: lang === "ja" ? "テキスト" : "Text", size: 14, color: "black", x: 0, y: 0, w: 0, h: 0 };
+  measureText(a);
+  // クリック点を文字の左上にする → 表示上の左下は (vx, vy + h*scale)
+  const [x, y] = state.viewport.convertToPdfPoint(vx, vy + a.h * state.scale);
+  a.x = x; a.y = y;
+  p.annots.push(a); state.selected = a.id; renderOverlay(); renderProps();
+}
+function addImageAt(vx, vy, img) {
+  const p = currentPage(); pushHistory();
+  const maxW = 120; const ratio = img.height / img.width;
+  const w = Math.min(maxW, img.width * 0.75), h = w * ratio;
+  const [x, y] = state.viewport.convertToPdfPoint(vx - (w * state.scale) / 2, vy + (h * state.scale) / 2);
+  const a = { id: uid(), type: "image", dataUrl: img.dataUrl, bytes: img.bytes, mime: img.mime, ratio, x, y, w, h };
+  p.annots.push(a); state.selected = a.id; renderOverlay(); renderProps();
+}
+/* ドラッグした矩形（表示座標）から図形・墨消し・トリミングを作る */
+function addRectAnnot(bx, by, bw, bh) {
+  const p = currentPage(); const vp = state.viewport; const k = state.scale;
+  if (state.tool === "crop") {
+    const pts = [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]].map(([x, y]) => vp.convertToPdfPoint(x, y));
+    const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+    state.cropDraft = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    renderOverlay(); renderProps(); return;
+  }
+  pushHistory();
+  const [x, y] = vp.convertToPdfPoint(bx, by + bh);
+  const a = state.tool === "redact" ? { id: uid(), type: "redact", x, y, w: bw / k, h: bh / k }
+    : { id: uid(), type: "shape", kind: state.shape.kind, color: state.shape.color, width: state.shape.width, x, y, w: bw / k, h: bh / k };
+  p.annots.push(a); state.selected = a.id; renderOverlay(); renderProps();
+}
+function addLineAnnot(x1v, y1v, x2v, y2v) {
+  const p = currentPage(); pushHistory();
+  const [x1, y1] = state.viewport.convertToPdfPoint(x1v, y1v); const [x2, y2] = state.viewport.convertToPdfPoint(x2v, y2v);
+  const a = { id: uid(), type: "shape", kind: state.shape.kind, color: state.shape.color, width: state.shape.width, x1, y1, x2, y2 };
+  p.annots.push(a); state.selected = a.id; renderOverlay(); renderProps();
+}
+function addInkAnnot(ptsV) {
+  const p = currentPage(); pushHistory();
+  const pts = ptsV.map(([x, y]) => state.viewport.convertToPdfPoint(x, y));
+  const a = { id: uid(), type: "ink", pts, color: state.draw.color, width: state.draw.width };
+  p.annots.push(a); state.selected = a.id; renderOverlay(); renderProps();
+}
+function removeAnnot(id) {
+  const p = currentPage(); pushHistory(); p.annots = p.annots.filter((a) => a.id !== id);
+  if (state.selected === id) state.selected = null;
+  renderOverlay(); renderProps();
+}
+/* 注釈を PDF 空間の差分 (dx, dy) だけ動かす。手書きの点列は新しい配列にする（履歴と共有しているため） */
+function translateAnnot(a, base, dx, dy) {
+  if (a.type === "ink") a.pts = base.pts.map(([x, y]) => [x + dx, y + dy]);
+  else if (a.type === "shape" && (a.kind === "line" || a.kind === "arrow")) { a.x1 = base.x1 + dx; a.y1 = base.y1 + dy; a.x2 = base.x2 + dx; a.y2 = base.y2 + dy; }
+  else { a.x = base.x + dx; a.y = base.y + dy; }
+}
+
+// ドラッグ移動・リサイズ・描画（ポインタイベント＝マウスもタッチも同じ）
+let drag = null;
+function bandEl() { let b = $("#band"); if (!b) { b = document.createElement("div"); b.id = "band"; el.overlay.appendChild(b); } return b; }
+el.overlay.addEventListener("pointerdown", (e) => {
+  const p = currentPage(); if (!p) return;
+  const target = e.target.closest(".annot");
+  const rect = el.overlay.getBoundingClientRect();
+  const vx = e.clientX - rect.left, vy = e.clientY - rect.top;
+  if (target) {
+    const a = p.annots.find((x) => x.id === +target.dataset.id); if (!a) return;
+    state.selected = a.id; renderOverlay(); renderProps();
+    const isHandle = e.target.classList.contains("handle");
+    pushHistory();
+    drag = { mode: isHandle ? "resize" : "move", a, base: { ...a }, sx: vx, sy: vy, moved: false };
+    el.overlay.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    return;
+  }
+  const T = state.tool;
+  if (T === "text") { addTextAt(vx, vy); return; }
+  if (T === "image") {
+    if (state.pendingImage) { addImageAt(vx, vy, state.pendingImage); state.pendingImage = null; renderProps(); }
+    else status(t("pickFirst"));
+    return;
+  }
+  if (T === "draw") {
+    drag = { mode: "ink", pts: [[vx, vy]] };
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.id = "inktemp";
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path"); path.setAttribute("fill", "none"); path.setAttribute("stroke", COLOR_CSS[state.draw.color]); path.setAttribute("stroke-width", Math.max(1, state.draw.width * state.scale)); path.setAttribute("stroke-linecap", "round"); path.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(path); el.overlay.appendChild(svg); drag.path = path;
+    el.overlay.setPointerCapture(e.pointerId); e.preventDefault(); return;
+  }
+  if (T === "shape" || T === "redact" || T === "crop") {
+    drag = { mode: "band", sx: vx, sy: vy, x: vx, y: vy };
+    const b = bandEl(); b.style.left = `${vx}px`; b.style.top = `${vy}px`; b.style.width = "0px"; b.style.height = "0px";
+    el.overlay.setPointerCapture(e.pointerId); e.preventDefault(); return;
+  }
+  state.selected = null; renderOverlay(); renderProps();
+});
+el.overlay.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  const rect = el.overlay.getBoundingClientRect();
+  const vx = clamp(e.clientX - rect.left, 0, rect.width), vy = clamp(e.clientY - rect.top, 0, rect.height);
+  if (drag.mode === "ink") {
+    const last = drag.pts[drag.pts.length - 1];
+    if (Math.hypot(vx - last[0], vy - last[1]) < 1.5) return;
+    drag.pts.push([vx, vy]);
+    drag.path.setAttribute("d", drag.pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" "));
+    return;
+  }
+  if (drag.mode === "band") {
+    drag.x = vx; drag.y = vy; const b = bandEl();
+    b.style.left = `${Math.min(drag.sx, vx)}px`; b.style.top = `${Math.min(drag.sy, vy)}px`; b.style.width = `${Math.abs(vx - drag.sx)}px`; b.style.height = `${Math.abs(vy - drag.sy)}px`;
+    return;
+  }
+  const a = drag.a; drag.moved = true;
+  if (drag.mode === "resize") {
+    const dw = (vx - drag.sx) / state.scale, dh = (vy - drag.sy) / state.scale;
+    a.w = Math.max(8, drag.base.w + dw);
+    a.h = a.type === "image" ? a.w * a.ratio : Math.max(4, drag.base.h + dh);
+    if (a.type !== "image") { /* 下辺が下がる分、左下アンカーを表示上の下方向へ */ const [ox, oy] = state.viewport.convertToPdfPoint(0, 0); const [nx, ny] = state.viewport.convertToPdfPoint(0, (a.h - drag.base.h) * state.scale); a.x = drag.base.x + (nx - ox); a.y = drag.base.y + (ny - oy); }
+    else { const [ox, oy] = state.viewport.convertToPdfPoint(0, 0); const [nx, ny] = state.viewport.convertToPdfPoint(0, (a.h - drag.base.h) * state.scale); a.x = drag.base.x + (nx - ox); a.y = drag.base.y + (ny - oy); }
+  } else {
+    // 表示上の移動量を PDF 空間へ（原点の差分で変換）
+    const [ox, oy] = state.viewport.convertToPdfPoint(drag.sx, drag.sy);
+    const [nx, ny] = state.viewport.convertToPdfPoint(vx, vy);
+    translateAnnot(a, drag.base, nx - ox, ny - oy);
+  }
+  renderOverlay();
+});
+function endDrag(e) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.mode === "ink") { const tmp = $("#inktemp"); if (tmp) tmp.remove(); if (d.pts.length >= 2) addInkAnnot(d.pts); return; }
+  if (d.mode === "band") {
+    const b = $("#band"); if (b) b.remove();
+    const x = Math.min(d.sx, d.x), y = Math.min(d.sy, d.y), w = Math.abs(d.x - d.sx), h = Math.abs(d.y - d.sy);
+    if (e.type === "pointercancel" || (w < 4 && h < 4)) { if (state.tool !== "crop") { state.selected = null; renderOverlay(); renderProps(); } return; }
+    if (state.tool === "shape" && (state.shape.kind === "line" || state.shape.kind === "arrow")) addLineAnnot(d.sx, d.sy, d.x, d.y);
+    else addRectAnnot(x, y, w, h);
+    return;
+  }
+  if (!d.moved) history.past.pop();
+}
+el.overlay.addEventListener("pointerup", endDrag); el.overlay.addEventListener("pointercancel", endDrag);
+/* ショートカット。文字入力中（input / textarea）はブラウザ標準に任せる */
+document.addEventListener("keydown", (e) => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && !e.shiftKey && e.key.toLowerCase() === "s") { e.preventDefault(); if (state.pages.length) exportPdf(); return; }
+  if (mod && e.key.toLowerCase() === "o") { e.preventDefault(); el.filePdf.click(); return; }
+  if (typing) return;
+  if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
+  if (!state.pages.length) return;
+  const sel = currentPage().annots.find((a) => a.id === state.selected);
+  if (e.key === "Delete" || e.key === "Backspace") { if (sel) { removeAnnot(sel.id); e.preventDefault(); } return; }
+  if (e.key === "Escape") { state.selected = null; state.cropDraft = null; renderOverlay(); renderProps(); return; }
+  if (/^Arrow/.test(e.key) && sel) {
+    // 選択中の注釈を1pt（Shift で10pt）動かす。方向は表示上のものなので PDF 空間へ変換する
+    const step = (e.shiftKey ? 10 : 1) * state.scale;
+    const dx = e.key === "ArrowRight" ? step : e.key === "ArrowLeft" ? -step : 0;
+    const dy = e.key === "ArrowDown" ? step : e.key === "ArrowUp" ? -step : 0;
+    const [ox, oy] = state.viewport.convertToPdfPoint(0, 0); const [nx, ny] = state.viewport.convertToPdfPoint(dx, dy);
+    if (!e.repeat) pushHistory();
+    translateAnnot(sel, { ...sel, pts: sel.pts }, nx - ox, ny - oy); renderOverlay(); e.preventDefault(); return;
+  }
+  if (e.key === "ArrowLeft" || e.key === "PageUp") { el.btnPrev.click(); e.preventDefault(); return; }
+  if (e.key === "ArrowRight" || e.key === "PageDown") { el.btnNext.click(); e.preventDefault(); return; }
+  if (/^[1-9]$/.test(e.key) && !mod && TOOLS[+e.key - 1]) { setTool(TOOLS[+e.key - 1].id); return; }
+});
+
+/* ───────────── フォント ─────────────*/
+async function loadFont(urls) {
+  status(t("loadingFont"), 0);
+  let lastErr = null;
+  for (const u of [].concat(urls)) {
+    try { const res = await fetch(u); if (!res.ok) throw new Error(`font ${res.status}`); const buf = await res.arrayBuffer(); status(""); return buf; }
+    catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error("font");
+}
+async function fontFor(text) {
+  // まず同梱サブセット（JIS X 0208）。足りない文字があればフル版へ切り替える
+  if (!state.fontBytes) { state.fontBytes = await loadFont(FONT_SUBSET_URLS); state.fontkitFont = fontkit.create(new Uint8Array(state.fontBytes)); }
+  const missing = [...text].some((ch) => { const cp = ch.codePointAt(0); return cp > 0x20 && !state.fontkitFont.hasGlyphForCodePoint(cp); });
+  if (missing) {
+    if (!state.fontFull) { state.fontFull = await loadFont([FONT_FULL_URL]); }
+    return state.fontFull;
+  }
+  return state.fontBytes;
+}
+
+/* ───────────── 書き出し ─────────────*/
+async function libOf(src) {
+  if (!src.lib) src.lib = await PDFDocument.load(src.bytes, { ignoreEncryption: true, updateMetadata: false });
+  return src.lib;
+}
+/* 表示上の右方向・上方向（PDF空間の単位ベクトル）。表示は total 回転しているので、描くものも total だけ回す
+   （pdf-lib は反時計回りが正。/Rotate は表示の時計回り＝同じ値でよい） */
+function axes(total) { const r = (total * Math.PI) / 180; return { rx: Math.cos(r), ry: Math.sin(r), ux: -Math.sin(r), uy: Math.cos(r) }; }
+function rectCorners(a, total) {
+  const { rx, ry, ux, uy } = axes(total);
+  return [[a.x, a.y], [a.x + a.w * rx, a.y + a.w * ry], [a.x + a.w * rx + a.h * ux, a.y + a.w * ry + a.h * uy], [a.x + a.h * ux, a.y + a.h * uy]];
+}
+async function buildPdf({ only } = {}) {
+  const out = await PDFDocument.create();
+  out.registerFontkit(fontkit);
+  out.setProducer(`ジェネリックPDF ${VERSION}`); out.setCreator("ジェネリックPDF / Generic PDF");
+  const m = state.meta;
+  if (m.title) out.setTitle(m.title); if (m.author) out.setAuthor(m.author); if (m.subject) out.setSubject(m.subject);
+  if (m.keywords) out.setKeywords(m.keywords.split(/[,、\s]+/).filter(Boolean));
+  const fontCache = new Map();
+  const embedFont = async (text) => {
+    const key = isAscii(text) ? "helv" : await fontFor(text);
+    if (!fontCache.has(key)) fontCache.set(key, key === "helv" ? await out.embedFont(StandardFonts.Helvetica) : await out.embedFont(key, { subset: true }));
+    return fontCache.get(key);
+  };
+  const imgCache = new Map();
+  const embedImage = async (a) => { if (!imgCache.has(a.dataUrl)) imgCache.set(a.dataUrl, a.mime === "image/png" ? await out.embedPng(a.bytes) : await out.embedJpg(a.bytes)); return imgCache.get(a.dataUrl); };
+  const list = only ? only.map((i) => state.pages[i]) : state.pages;
+  const N = list.length;
+  for (let li = 0; li < N; li++) {
+    const p = list[li];
+    const src = sourceOf(p); const lib = await libOf(src);
+    const pdfjsPage = await src.pdf.getPage(p.index + 1);
+    const total = ((pdfjsPage.rotate + p.extraRotation) % 360 + 360) % 360;
+    const redactions = p.annots.filter((a) => a.type === "redact");
+    let page;
+    if (redactions.length) page = await rasterizePage(out, pdfjsPage, redactions, total);
+    else { [page] = await out.copyPages(lib, [p.index]); out.addPage(page); }
+    page.setRotation(degrees(total));
+    if (p.crop) { page.setCropBox(p.crop.x, p.crop.y, p.crop.w, p.crop.h); page.setMediaBox(p.crop.x, p.crop.y, p.crop.w, p.crop.h); }
+    const rot = degrees(total);
+    for (const a of p.annots) {
+      if (a.type === "text") {
+        const font = await embedFont(a.text);
+        const lines = a.text.split("\n"); const lh = a.size * 1.2;
+        // 左下アンカーから、上へ行を積む。ベースラインは各行の下端＋ディセント分
+        const { ux, uy } = axes(total);
+        const descent = a.size * 0.22;
+        lines.forEach((line, i) => {
+          const fromBottom = (lines.length - 1 - i) * lh + descent;
+          page.drawText(line, { x: a.x + ux * fromBottom, y: a.y + uy * fromBottom, size: a.size, font, color: COLORS[a.color], rotate: rot });
+        });
+      } else if (a.type === "image") {
+        page.drawImage(await embedImage(a), { x: a.x, y: a.y, width: a.w, height: a.h, rotate: rot });
+      } else if (a.type === "ink") {
+        page.pushOperators(pushGraphicsState(), setLineWidth(a.width), setStrokingColor(COLORS[a.color]), setLineCap(LineCapStyle.Round), setLineJoin(LineJoinStyle.Round),
+          ...a.pts.map(([x, y], i) => (i ? lineTo(x, y) : moveTo(x, y))), stroke(), popGraphicsState());
+      } else if (a.type === "shape") {
+        if (a.kind === "rect") page.drawRectangle({ x: a.x, y: a.y, width: a.w, height: a.h, borderColor: COLORS[a.color], borderWidth: a.width, rotate: rot });
+        else if (a.kind === "highlight") page.drawRectangle({ x: a.x, y: a.y, width: a.w, height: a.h, color: COLORS.yellow, blendMode: BlendMode.Multiply, rotate: rot });
+        else if (a.kind === "white") page.drawRectangle({ x: a.x, y: a.y, width: a.w, height: a.h, color: COLORS.white, rotate: rot });
+        else {
+          const opts = { thickness: a.width, color: COLORS[a.color], lineCap: LineCapStyle.Round };
+          page.drawLine({ start: { x: a.x1, y: a.y1 }, end: { x: a.x2, y: a.y2 }, ...opts });
+          if (a.kind === "arrow") {
+            const ang = Math.atan2(a.y2 - a.y1, a.x2 - a.x1); const len = Math.max(8, a.width * 4);
+            for (const d of [0.5, -0.5]) page.drawLine({ start: { x: a.x2 - len * Math.cos(ang + d), y: a.y2 - len * Math.sin(ang + d) }, end: { x: a.x2, y: a.y2 }, ...opts });
+          }
+        }
+      } else if (a.type === "redact") {
+        page.drawRectangle({ x: a.x, y: a.y, width: a.w, height: a.h, color: COLORS.black, rotate: rot });
+      }
+    }
+    // 透かし・ページ番号（表示上の箱＝トリミング後の範囲を基準に置く）
+    const vp1 = pdfjsPage.getViewport({ scale: 1, rotation: total });
+    const box = displayBox(vp1, p);
+    const wm = state.watermark;
+    if (wm.enabled && (wm.kind === "text" ? wm.text : wm.image)) {
+      if (wm.kind === "text") {
+        const font = await embedFont(wm.text); const w = font.widthOfTextAtSize(wm.text, wm.size), h = wm.size * 0.72;
+        const [bx, by] = centeredAnchor(box, w, h, wm.angle); const [x, y] = vp1.convertToPdfPoint(bx, by);
+        page.drawText(wm.text, { x, y, size: wm.size, font, color: COLORS[wm.color], opacity: wm.opacity, rotate: degrees(total + wm.angle) });
+      } else {
+        const img = await embedImage(wm.image); const w = box.w * wm.scale, h = w * wm.image.height / wm.image.width;
+        const [bx, by] = centeredAnchor(box, w, h, wm.angle); const [x, y] = vp1.convertToPdfPoint(bx, by);
+        page.drawImage(img, { x, y, width: w, height: h, opacity: wm.opacity, rotate: degrees(total + wm.angle) });
+      }
+    }
+    if (state.pagenum.enabled) {
+      const text = pageNumberText(only ? only[li] : li); const font = await embedFont(text); const size = state.pagenum.size;
+      const [dx, dy] = pageNumberPlace(box, font.widthOfTextAtSize(text, size), size, 1); const [x, y] = vp1.convertToPdfPoint(dx, dy);
+      page.drawText(text, { x, y, size, font, color: COLORS.black, rotate: rot });
+    }
+  }
+  return out;
+}
+/* 墨消しのあるページは画像にして作り直す（下の文字を本当に消すため）。
+   回転0（ユーザー空間そのまま）で描き、同じ MediaBox の新ページに貼るので、注釈の座標はそのまま使える */
+async function rasterizePage(out, pdfjsPage, redactions, total) {
+  const vp = pdfjsPage.getViewport({ scale: 2, rotation: 0 });
+  const c = document.createElement("canvas"); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+  const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+  await pdfjsPage.render({ canvasContext: ctx, viewport: vp }).promise;
+  ctx.fillStyle = "#000";
+  for (const a of redactions) {
+    const poly = rectCorners(a, total).map(([x, y]) => vp.convertToViewportPoint(x, y));
+    ctx.beginPath(); poly.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill();
+  }
+  const jpg = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.92));
+  const img = await out.embedJpg(await jpg.arrayBuffer());
+  const [x0, y0, x1, y1] = pdfjsPage.view;
+  const page = out.addPage([x1 - x0, y1 - y0]); page.setMediaBox(x0, y0, x1 - x0, y1 - y0);
+  page.drawImage(img, { x: x0, y: y0, width: x1 - x0, height: y1 - y0 });
+  return page;
+}
+async function finishBytes(out, { encrypt = state.encrypt.enabled } = {}) {
+  let bytes = await out.save();
+  if (encrypt) {
+    const e = state.encrypt; if (!e.user && !e.owner) throw new Error(t("protNeed"));
+    status(t("encrypting"), 0);
+    const args = ["--encrypt", e.user, e.owner || e.user, "256"]; if (e.noPrint) args.push("--print=none"); if (e.noModify) args.push("--modify=none"); args.push("--");
+    bytes = await runQpdf(bytes, args);
+  }
+  return bytes;
+}
+async function exportPdf({ only, suffix = "_generic", encrypt } = {}) {
+  try {
+    status(t("building"), 0);
+    const out = await buildPdf({ only });
+    const bytes = await finishBytes(out, encrypt === undefined ? {} : { encrypt });
+    download(bytes, `${state.baseName}${suffix}.pdf`);
+    status(t("saved", { kb: formatKb(bytes.length) }));
+    return bytes;
+  } catch (e) { status(t("saveFail", { err: e && e.message ? e.message : e }), 8000); throw e; }
+}
+async function exportOptimized() {
+  try {
+    status(t("building"), 0);
+    const merged = await (await buildPdf()).save();
+    status(t("optimizing"), 0);
+    let bytes = await runQpdf(merged, ["--object-streams=generate", "--recompress-flate", "--compression-level=9", "--stream-data=compress"]);
+    if (state.encrypt.enabled) bytes = await finishBytes({ save: async () => bytes });
+    download(bytes, `${state.baseName}_optimized.pdf`);
+    const before = state.sources.reduce((s, x) => s + x.bytes.byteLength, 0);
+    const msg = t("before", { a: formatKb(before), b: formatKb(bytes.length) });
+    status(`${t("saved", { kb: formatKb(bytes.length) })} ${msg}`, 6000); const r = $("#p-result"); if (r) r.textContent = msg;
+    return bytes;
+  } catch (e) { status(t("saveFail", { err: e && e.message ? e.message : e }), 8000); throw e; }
+}
+async function exportCompressed(quality, scale) {
+  try {
+    status(t("rasterizing"), 0);
+    const merged = await (await buildPdf()).save();
+    const pdf = await pdfjsLib.getDocument({ data: merged, isEvalSupported: false }).promise;
+    const out = await PDFDocument.create(); out.setProducer(`ジェネリックPDF ${VERSION}`);
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const vp = page.getViewport({ scale });
+      const c = document.createElement("canvas"); c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+      const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      const jpg = await new Promise((r) => c.toBlob(r, "image/jpeg", quality));
+      const img = await out.embedJpg(await jpg.arrayBuffer());
+      const base = page.getViewport({ scale: 1 });
+      const pg = out.addPage([base.width, base.height]);
+      pg.drawImage(img, { x: 0, y: 0, width: base.width, height: base.height });
+      status(t("converting", { i, n: pdf.numPages }), 0);
+    }
+    const bytes = await finishBytes(out);
+    download(bytes, `${state.baseName}_compressed.pdf`);
+    const before = state.sources.reduce((s, x) => s + x.bytes.byteLength, 0);
+    const msg = t("before", { a: formatKb(before), b: formatKb(bytes.length) });
+    status(`${t("saved", { kb: formatKb(bytes.length) })} ${msg}`, 6000); const r = $("#p-result"); if (r) r.textContent = msg;
+    return bytes;
+  } catch (e) { status(t("saveFail", { err: e && e.message ? e.message : e }), 8000); throw e; }
+}
+/* PDF → 画像。1ページなら画像1枚、複数なら zip（無圧縮）にまとめる */
+async function exportImages() {
+  const c = state.convert;
+  const idx = c.scope === "cur" ? [state.current] : c.scope === "all" ? state.pages.map((_, i) => i) : parseRange(c.range, state.pages.length);
+  if (!idx.length) { status(t("badRange")); return; }
+  try {
+    status(t("rasterizing"), 0);
+    const merged = await (await buildPdf({ only: idx })).save();
+    const pdf = await pdfjsLib.getDocument({ data: merged, isEvalSupported: false }).promise;
+    const files = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const vp = page.getViewport({ scale: c.dpi / 72 });
+      const cv = document.createElement("canvas"); cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height);
+      const ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      const blob = await new Promise((r) => cv.toBlob(r, c.fmt === "png" ? "image/png" : "image/jpeg", 0.9));
+      files.push({ name: `${state.baseName}_p${String(idx[i - 1] + 1).padStart(String(state.pages.length).length, "0")}.${c.fmt}`, data: new Uint8Array(await blob.arrayBuffer()), type: blob.type });
+      status(t("converting", { i, n: pdf.numPages }), 0);
+    }
+    if (files.length === 1) download(files[0].data, files[0].name, files[0].type);
+    else download(makeZip(files), `${state.baseName}_images.zip`, "application/zip");
+    status(t("saved", { kb: formatKb(files.reduce((s, f) => s + f.data.length, 0)) }));
+    return files;
+  } catch (e) { status(t("saveFail", { err: e && e.message ? e.message : e }), 8000); throw e; }
+}
+/* zip（無圧縮 store）。外部ライブラリを増やさないために最小限で書いている */
+const CRC_TABLE = (() => { const tb = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; tb[n] = c >>> 0; } return tb; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(); const parts = [], central = []; let offset = 0;
+  const now = new Date(); const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1); const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  for (const f of files) {
+    const name = enc.encode(f.name); const crc = crc32(f.data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true); lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, f.data.length, true); lh.setUint32(22, f.data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(new Uint8Array(lh.buffer), name, f.data);
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0, 0x02014b50, true); cd.setUint16(4, 20, true); cd.setUint16(6, 20, true); cd.setUint16(8, 0x0800, true); cd.setUint16(10, 0, true); cd.setUint16(12, dosTime, true); cd.setUint16(14, dosDate, true);
+    cd.setUint32(16, crc, true); cd.setUint32(20, f.data.length, true); cd.setUint32(24, f.data.length, true); cd.setUint16(28, name.length, true); cd.setUint16(30, 0, true); cd.setUint16(32, 0, true);
+    cd.setUint16(34, 0, true); cd.setUint16(36, 0, true); cd.setUint32(38, 0, true); cd.setUint32(42, offset, true);
+    central.push(new Uint8Array(cd.buffer), name);
+    offset += 30 + name.length + f.data.length;
+  }
+  const cdSize = central.reduce((s, x) => s + x.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(4, 0, true); end.setUint16(6, 0, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cdSize, true); end.setUint32(16, offset, true); end.setUint16(20, 0, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: "application/zip" });
+}
+function download(data, name, type = "application/pdf") {
+  const blob = data instanceof Blob ? data : new Blob([data], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/* ───────────── 画像の選択（印影・透かし） ─────────────*/
+el.fileImg.addEventListener("change", async () => {
+  const f = el.fileImg.files[0]; el.fileImg.value = ""; if (!f) return;
+  if (!/^image\/(png|jpeg)$/.test(f.type)) { status(t("imgOnly")); return; }
+  const bytes = await readAsArrayBuffer(f);
+  const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); });
+  const im = new Image(); await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = dataUrl; });
+  const img = { name: f.name, dataUrl, bytes, mime: f.type, width: im.naturalWidth, height: im.naturalHeight };
+  if (state.imageTarget === "watermark") { state.imageTarget = null; state.watermark.image = img; state.watermark.enabled = true; renderOverlay(); renderProps(); return; }
+  state.pendingImage = img;
+  status(t("placeHint"));
+  renderProps();
+});
+
+/* ───────────── UI 配線 ─────────────*/
+el.btnPrev.addEventListener("click", () => { if (state.current > 0) { state.current--; state.selected = null; state.cropDraft = null; render(); } });
+el.btnNext.addEventListener("click", () => { if (state.current < state.pages.length - 1) { state.current++; state.selected = null; state.cropDraft = null; render(); } });
+el.btnSave.addEventListener("click", () => exportPdf());
+el.btnAdd.addEventListener("click", () => el.filePdf.click());
+el.btnLang.addEventListener("click", () => setLang(lang === "ja" ? "en" : "ja"));
+el.filePdf.addEventListener("change", () => { addFiles(el.filePdf.files); el.filePdf.value = ""; });
+el.dropbox.addEventListener("click", () => el.filePdf.click());
+el.dropbox.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") el.filePdf.click(); });
+for (const tg of [el.dropbox, el.stage]) {
+  tg.addEventListener("dragover", (e) => { e.preventDefault(); el.dropbox.classList.add("over"); });
+  tg.addEventListener("dragleave", () => el.dropbox.classList.remove("over"));
+  tg.addEventListener("drop", (e) => { e.preventDefault(); el.dropbox.classList.remove("over"); if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+}
+window.addEventListener("resize", () => { if (state.pages.length) render(); });
+window.addEventListener("beforeunload", (e) => { if (state.pages.some((p) => p.annots.length || p.crop)) { e.preventDefault(); e.returnValue = ""; } });
+
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+applyLang();
+
+// 動作確認用（ドキュメント化しない）。ファイル操作はすべてこのブラウザの中で完結する
+window.GP = { state, undo, redo, history, addFiles, addSource, setTool, setLang, t, addTextAt, addImageAt, addRectAnnot, addLineAnnot, addInkAnnot, addBlankPage, applyCrop, applyForm, revertForm, rotate, movePage, deletePage,
+  buildPdf, exportPdf, exportOptimized, exportCompressed, exportImages, makeZip, runQpdf, render, parseRange, imageToPdf, version: VERSION };
+</script>
+</body>
+</html>
