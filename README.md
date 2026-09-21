@@ -39,7 +39,7 @@
 
 | 調べるもの | 結果 |
 |---|---|
-| `fetch(` | **1か所** — 日本語フォントの取得（1692行目） |
+| `fetch(` | **1か所** — 日本語フォントの取得（1697行目） |
 | `XMLHttpRequest` | **0か所** — コメントに名前が出るだけ |
 | `FormData` / `sendBeacon` / `WebSocket` | **0か所** |
 | `POST` | **0か所** |
@@ -116,7 +116,7 @@ grep -n 'fetch(\|XMLHttpRequest\|FormData\|sendBeacon\|POST' index.html
 
 ## 中身
 
-`index.html` の1ファイル、2,053行、148KB。ビルド工程はありません。ブラウザで開いて、そのまま直せます。
+`index.html` の1ファイル、2,058行、148KB。ビルド工程はありません。ブラウザで開いて、そのまま直せます。
 
 | 使っているもの | ライセンス | 用途 |
 |---|---|---|
@@ -148,7 +148,7 @@ I was paying ¥23,760 a year for Acrobat. The alternative was handing my documen
 
 | What to look for | Result |
 |---|---|
-| `fetch(` | **1 occurrence** — fetching the Japanese font (line 1692) |
+| `fetch(` | **1 occurrence** — fetching the Japanese font (line 1697) |
 | `XMLHttpRequest` | **0** — the name only appears in a comment |
 | `FormData` / `sendBeacon` / `WebSocket` | **0** |
 | `POST` | **0** |
@@ -161,4 +161,4 @@ Continuous scrolling through all pages, zoom from 25% to 400% (Ctrl+wheel stays 
 
 **What it does not do**, and — apart from OCR — is not planned to: editing existing text or images in place (you overlay instead; white-out plus text does the job) · converting to Word/Excel/PowerPoint · PDF/A or PDF/X · certificate-based digital signatures (a drawn or image signature is fine) · comparing two PDFs · OCR (under consideration) · XFA forms · working offline (libraries and fonts come from a CDN).
 
-**Built with** pdf-lib (MIT), @pdf-lib/fontkit (MIT), pdf.js (Apache-2.0), qpdf-wasm (Apache-2.0, loaded on demand) and Noto Sans JP (SIL OFL 1.1), all pinned. The app itself is MIT. 2,053 lines, 148 KB, no build step — open it in a browser and edit it. Bug reports and requests: [Issues](../../issues).
+**Built with** pdf-lib (MIT), @pdf-lib/fontkit (MIT), pdf.js (Apache-2.0), qpdf-wasm (Apache-2.0, loaded on demand) and Noto Sans JP (SIL OFL 1.1), all pinned. The app itself is MIT. 2,058 lines, 148 KB, no build step — open it in a browser and edit it. Bug reports and requests: [Issues](../../issues).

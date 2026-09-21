@@ -482,7 +482,12 @@ const state = {
   zoom: "fit",          // "fit"（幅に合わせる）/ "page"（全体）/ 数値（1 = 100%）
   viewport: null,       // いまのページの viewport（pdf.js）。座標変換に使う
   views: [],            // 表示単位（ページ列と同じ順）{uid, p, i, box, cv, overlay, page, rotation, base, viewport, scale, key, task}
-  ui: (() => { try { const v = JSON.parse(localStorage.getItem("gp-ui") || ""); return { nav: v.nav !== false, props: v.props !== false, sheet: false }; } catch (_) { return { nav: true, props: true, sheet: false }; } })(),
+  // 初回だけ画面幅で決める（タブレット縦だと左右のパネルが幅を食い、紙が半分以下に縮む）。以後は保存した設定が勝つ
+  ui: (() => {
+    const wide = (window.innerWidth || 1280) > 1024;
+    try { const v = JSON.parse(localStorage.getItem("gp-ui") || ""); return { nav: v.nav !== false, props: v.props !== false, sheet: false }; }
+    catch (_) { return { nav: true, props: wide, sheet: false }; }
+  })(),
   baseName: "document",
   fontBytes: null,      // サブセット
   fontFull: null,       // フル（サブセットに無い文字が出たとき）
