@@ -38,7 +38,7 @@ your file anywhere. The only network requests fetch libraries and fonts.
 
 | # | 効能 / Tool | 内容 / Details |
 |---|---|---|
-| 01 | 文字を書く / Text | クリックして配置。日本語 OK。サイズ・色・複数行 / Click to place. Japanese OK. Size, colour, multi-line |
+| 01 | 文字を書く / Text | タップ／クリックした場所にその場で入力。置いた文字はタップで書き直し、ドラッグで移動。日本語 OK。サイズ・色・複数行 / Type right where you tap or click. Tap placed text to edit, drag to move. Japanese OK. Size, colour, multi-line |
 | 02 | 印影・画像 / Stamp, image | PNG（透過 OK）/ JPG を貼る。拡縮・移動 / Place PNG (transparency OK) or JPG. Resize, move |
 | 03 | 手書き・署名 / Draw, sign | 指やマウスで描く。色・太さ / Draw with a finger or mouse. Colour, stroke width |
 | 04 | 図形・マーカー / Shapes, highlight | 枠線・黄色マーカー・白塗り（修正液）・直線・矢印 / Box, yellow highlighter, white-out, line, arrow |
@@ -61,8 +61,8 @@ your file anywhere. The only network requests fetch libraries and fonts.
 **拡大・縮小**: ツールバーの ＋ / −、倍率の選択（幅に合わせる・全体を表示・25〜400%）、Ctrl＋ホイール（カーソルの下が動きません）、Ctrl＋＋ / Ctrl＋− / Ctrl＋0、スマホは2本指。
 **Zoom**: + / − in the toolbar, a zoom menu (fit width, fit page, 25–400%), Ctrl+wheel (anchored under the cursor), Ctrl++ / Ctrl+- / Ctrl+0, or pinch on a phone.
 
-**スマホ**: 上に効能、中央に紙、下に1行のバー。設定はバーから出るシートで、文字を選んだときと設定から操作する効能を選んだときは自動で開きます。指で掴んで動かすと慣性で滑ります。2本指で拡大。
-**Phone**: tools on top, the page in the middle, a one-line bar at the bottom. Settings slide up from the bar and open by themselves when you select text or pick a tool that is operated from the panel. Drag with a finger to pan with momentum, pinch to zoom.
+**スマホ**: 上に効能、中央に紙、下に1行のバー。文字はその場で入力し、選んだ注釈の上に「書き直す・設定・削除」の小さなバーが出ます。設定はバーから出るシートで、設定から操作する効能を選んだときは自動で開きます。指で掴んで動かすと慣性で滑ります。2本指で拡大。
+**Phone**: tools on top, the page in the middle, a one-line bar at the bottom. Text is typed in place, and a small bar (edit / settings / delete) appears above whatever you select. Settings slide up from the bar and open by themselves when you pick a tool that is operated from the panel. Drag with a finger to pan with momentum, pinch to zoom.
 
 Ctrl+Z / Ctrl+Shift+Z、Ctrl+S、Ctrl+O、Delete、矢印キー、V / Esc（選択に戻る）、1〜9 のショートカットあり。
 Shortcuts: Ctrl+Z / Ctrl+Shift+Z, Ctrl+S, Ctrl+O, Delete, arrow keys, V / Esc (back to select), 1–9.

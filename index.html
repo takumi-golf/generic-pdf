@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <title>ジェネリックPDF — 文字入れ・押印・署名・結合・分割・回転・透かし・パスワード・墨消し。アップロードしない、ブラウザだけで動くPDFツール</title>
 <meta name="description" content="PDFに文字を書く・印影を押す・手書き署名・結合・分割・並べ替え・回転・トリミング・透かし・ページ番号・フォーム記入・パスワード保護と解除・墨消し・画像との相互変換・圧縮。ファイルはあなたのPCから出ません。会員登録もカード登録もなし。0円。日本語 / English。">
 <meta property="og:title" content="ジェネリックPDF">
@@ -67,9 +67,9 @@
   header{ display:flex; align-items:center; gap:16px; padding:0 16px; height:56px; border-bottom:var(--line); overflow:hidden; }
   header h1{ font-size:16px; font-weight:700; white-space:nowrap; }
   header button{ white-space:nowrap; flex:none; }
-  header #fname{ min-width:0; max-width:36vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  header #fname{ flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; margin-left:8px; }
   header .ver{ font-family:var(--mono); font-size:12px; color:var(--mute); }
-  header .spacer{ flex:1; }
+  header .spacer{ flex:1 0 16px; }
   header a.gh{ font-family:var(--mono); font-size:12px; text-decoration:none; border-bottom:1px solid currentColor; white-space:nowrap; }
   header button.lang{ font-family:var(--mono); font-size:12px; padding:4px 10px; }
   /* 左右のパネルは hidden で畳む。列は auto なので畳むと幅 0 になり、中央が広がる */
@@ -152,6 +152,16 @@
   svg.annot.selected{ outline:1px dashed var(--fg); }
   svg.annot path, svg.annot line{ fill:none; stroke-linecap:round; stroke-linejoin:round; }
   svg.annot .hit{ stroke:transparent; stroke-width:12; pointer-events:visibleStroke; cursor:move; }
+  /* その場編集: 置いた文字の位置に textarea を重ねる。編集中の注釈本体は隠す */
+  .annot.editing{ visibility:hidden; }
+  textarea.edit{ position:absolute; z-index:3; margin:0; padding:1px 3px; border:1px solid var(--fg); background:rgba(255,255,255,.96); color:#000; line-height:1.2; white-space:pre; overflow:hidden; resize:none; outline:none; border-radius:0; box-shadow:0 2px 10px rgba(0,0,0,.25); font-family:"Noto Sans JP",sans-serif; }
+  /* スマホ: 選択中の注釈の上に小さなバー（設定・削除） */
+  .selbar{ position:absolute; z-index:2; display:flex; background:var(--fg); border:1px solid var(--fg); gap:1px; }
+  .selbar button{ border:0; padding:6px 12px; font-size:13px; background:var(--bg); color:var(--fg); white-space:nowrap; }
+  @media (pointer:coarse){
+    .annot::after{ content:""; position:absolute; inset:-12px; }
+    .annot .handle{ width:24px; height:24px; right:-12px; bottom:-12px; }
+  }
   .prev{ position:absolute; pointer-events:none; white-space:nowrap; line-height:1; }
   .prev.crop{ border:1px dashed var(--fg); box-shadow:0 0 0 9999px rgba(128,128,128,.35); }
   .prev.cropdraft{ border:2px solid var(--fg); }
@@ -224,8 +234,8 @@
     <h1>ジェネリックPDF</h1>
     <span class="ver">v1.0.0</span>
     <a class="gh" href="https://github.com/takumi-golf/generic-pdf" target="_blank" rel="noopener" data-t="source">ソース →</a>
-    <span class="spacer"></span>
     <span id="fname" class="mono mute"></span>
+    <span class="spacer"></span>
     <button id="btn-add" hidden data-t="add">＋ 追加</button>
     <button id="btn-save" class="primary" hidden data-t="save">保存 ↓</button>
     <button id="btn-lang" class="lang" aria-label="Language">EN</button>
@@ -350,8 +360,8 @@ const STR = {
   noUndo: ["戻る操作はありません", "Nothing to undo"], noRedo: ["やり直す操作はありません", "Nothing to redo"], undone: ["1つ戻しました", "Undone"], redone: ["やり直しました", "Redone"],
   content: ["内容", "Text"], size: ["サイズ（pt）", "Size (pt)"], color: ["色", "Color"], width: ["太さ（pt）", "Stroke (pt)"], opacity: ["濃さ", "Opacity"], angle: ["角度", "Angle"],
   "c.black": ["黒", "Black"], "c.red": ["赤", "Red"], "c.blue": ["青", "Blue"], "c.gray": ["灰", "Gray"], "c.white": ["白", "White"],
-  del: ["× 削除", "× Delete"], none: ["選択中のものはありません", "Nothing selected"],
-  "text.note": ["ページ上をクリックすると文字を置けます。ドラッグで移動。日本語OK。", "Click on the page to place text. Drag to move. Japanese OK."],
+  del: ["× 削除", "× Delete"], none: ["選択中のものはありません", "Nothing selected"], settings: ["設定", "Settings"], editText: ["書き直す", "Edit"],
+  "text.note": ["ページをタップ／クリックすると、その場に入力欄が出ます。置いた文字はタップで書き直し、ドラッグで移動。日本語OK。", "Tap or click the page and type right there. Tap placed text to edit it again, drag to move. Japanese OK."],
   "text.note2": ["既存の文字は書き換えられません（上に重ねます）。Ctrl+Z で戻せます。", "Existing text cannot be edited (you overlay on top). Ctrl+Z undoes."],
   "image.note": ["PNG（透過OK）か JPG を選び、ページ上をクリックして置きます。右下の角で大きさ、ドラッグで移動。", "Choose a PNG (transparency OK) or JPG, then click on the page. Resize from the bottom-right corner, drag to move."],
   pickImage: ["画像を選ぶ", "Choose image"], notPicked: ["未選択", "None chosen"], clickToPlace: ["{name} — ページをクリック", "{name} — click on the page"],
@@ -489,6 +499,7 @@ function pushHistory() {
   history.future.length = 0;
 }
 function restore(snap) {
+  closeEditor();
   state.pages = snap.pages.map((p) => ({ ...p, annots: p.annots.map((a) => ({ ...a })) }));
   state.current = Math.min(snap.current, Math.max(0, state.pages.length - 1));
   state.selected = null;
@@ -605,8 +616,7 @@ async function askPassword(bytes, name) {
 function setFileName() {
   const names = state.sources.filter((s) => !s.blank).map((s) => s.name);
   const first = names[0] || "";
-  const short = first.length > 28 ? `${first.slice(0, 18)}…${first.slice(-8)}` : first;
-  el.fname.textContent = names.length > 1 ? t("others", { name: short, n: names.length - 1 }) : short;
+  el.fname.textContent = names.length > 1 ? t("others", { name: first, n: names.length - 1 }) : first;
   el.fname.title = names.join("\n");
 }
 function readAsArrayBuffer(file) {
@@ -663,6 +673,7 @@ async function render() {
   const seq = ++layoutSeq;
   await layout();
   if (seq !== layoutSeq) return; // すでに次の描き直しが始まっている
+  if (editor && !state.views.includes(editor.v)) closeEditor();
   renderVisible(); renderOverlays(); updatePageInfo(); syncZoomUI(); renderProps();
 }
 async function layout() {
@@ -684,7 +695,7 @@ async function layout() {
     v.scale = scale; v.viewport = v.page.getViewport({ scale, rotation: v.rotation });
     v.box.style.width = `${Math.floor(v.viewport.width) + 2}px`; v.box.style.height = `${Math.floor(v.viewport.height) + 2}px`;
     v.box.dataset.i = v.i;
-    el.pages.appendChild(v.box); // 順に付け直す＝並べ替えもここで反映
+    if (el.pages.children[v.i] !== v.box) el.pages.insertBefore(v.box, el.pages.children[v.i] || null); // 並びが変わったものだけ付け直す（付け直すと中の入力欄がフォーカスを失う）
   }
   state.scale = scale; state.viewport = views[state.current].viewport;
 }
@@ -880,8 +891,19 @@ function renderOverlayFor(v) {
       if (a.type !== "text") { const hd = document.createElement("div"); hd.className = "handle"; d.appendChild(hd); }
     }
     d.dataset.id = a.id; if (a.id === state.selected) d.classList.add("selected");
+    if (editor && editor.a === a) d.classList.add("editing");
     O.appendChild(d);
+    // スマホ: 選択中の注釈の上に「設定・削除」。入力中は出さない
+    if (a.id === state.selected && isMobile() && !(editor && editor.a === a)) {
+      const r = d.getBoundingClientRect(), ro = O.getBoundingClientRect();
+      const top = r.top - ro.top; const bar = document.createElement("div"); bar.className = "selbar";
+      bar.innerHTML = `${a.type === "text" ? `<button data-act="edit">${t("editText")}</button>` : ""}<button data-act="settings">${t("settings")}</button><button data-act="del">${t("del")}</button>`;
+      bar.style.left = `${Math.max(0, Math.min(r.left - ro.left, ro.width - 200))}px`; bar.style.top = `${top > 44 ? top - 40 : r.bottom - ro.top + 8}px`;
+      bar.addEventListener("click", (e) => { const act = e.target.dataset.act; if (act === "del") removeAnnot(a.id); else if (act === "settings") openSheet(); else if (act === "edit") openEditor(a, v, { selectAll: false }); });
+      O.appendChild(bar);
+    }
   }
+  if (editor && editor.v === v) positionEditor();
   // トリミング（適用済み・選択中）
   if (p.crop) { const b = displayBox(vp, p); const d = document.createElement("div"); d.className = "prev crop"; d.style.left = `${b.x}px`; d.style.top = `${b.y}px`; d.style.width = `${b.w}px`; d.style.height = `${b.h}px`; O.appendChild(d); }
   if (state.tool === "crop" && state.cropDraft && v.i === state.current) { const b = displayBox(vp, { crop: state.cropDraft }); const d = document.createElement("div"); d.className = "prev cropdraft"; d.style.left = `${b.x}px`; d.style.top = `${b.y}px`; d.style.width = `${b.w}px`; d.style.height = `${b.h}px`; O.appendChild(d); }
@@ -947,6 +969,7 @@ function renderNav() {
   });
 }
 function setTool(tl) {
+  closeEditor();
   state.tool = tl; state.selected = null; state.cropDraft = null;
   for (const b of el.tools.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.tool === tl));
   syncCursor();
@@ -982,7 +1005,7 @@ function annotPanel(a) {
 function bindAnnotPanel(a) {
   if (!a) return;
   bind("#p-text", "focus", () => pushHistory());
-  bind("#p-text", "input", (e) => { a.text = e.target.value; measureText(a); renderOverlay(); });
+  bind("#p-text", "input", (e) => { a.text = e.target.value; measureText(a); syncEditor(a); renderOverlay(); });
   bind("#p-size", "change", (e) => { pushHistory(); a.size = clamp(+e.target.value || 12, 6, 96); measureText(a); renderOverlay(); });
   bind("#p-color", "change", (e) => { pushHistory(); a.color = e.target.value; renderOverlay(); });
   bind("#p-width", "change", (e) => { pushHistory(); a.width = clamp(+e.target.value || 2, 1, 20); renderOverlay(); });
@@ -1020,10 +1043,9 @@ function renderProps() {
       <p class="note">${t("text.note2")}</p>`;
     if (sel && sel.type === "text") {
       bind("#p-text", "focus", () => pushHistory());
-      bind("#p-text", "input", (e) => { sel.text = e.target.value; measureText(sel); renderOverlay(); });
+      bind("#p-text", "input", (e) => { sel.text = e.target.value; measureText(sel); syncEditor(sel); renderOverlay(); });
       bind("#p-size", "change", (e) => { pushHistory(); sel.size = clamp(+e.target.value || 12, 6, 96); measureText(sel); renderOverlay(); });
       bind("#p-color", "change", (e) => { pushHistory(); sel.color = e.target.value; renderOverlay(); });
-      $("#p-text").focus();
     }
   } else if (T === "image") {
     P.innerHTML = `${head(T)}<p class="note">${t("image.note")}</p>
@@ -1349,6 +1371,41 @@ async function renderFileInfo() {
   }
 }
 
+/* ───────────── その場編集（文字） ─────────────
+   置いた文字の位置に textarea を重ねる（Acrobat のスマホ版と同じ）。右パネルの文字欄とは双方向に同期する。
+   入力欄はオーバーレイではなくページの箱に置くので、オーバーレイを描き直しても消えない */
+let editor = null; // {a, v, el, dirty}
+function openEditor(a, v, { selectAll = false } = {}) {
+  if (editor && editor.a === a) { editor.el.focus(); return; }
+  closeEditor();
+  const ta = document.createElement("textarea"); ta.className = "edit"; ta.wrap = "off"; ta.spellcheck = false; ta.value = a.text;
+  ta.setAttribute("aria-label", t("content"));
+  v.box.appendChild(ta);
+  editor = { a, v, el: ta, dirty: false };
+  positionEditor();
+  ta.addEventListener("input", () => { if (!editor.dirty) { editor.dirty = true; pushHistory(); } a.text = ta.value; measureText(a); positionEditor(); const n = $("#p-text"); if (n && n !== document.activeElement) n.value = a.text; });
+  ta.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); closeEditor(); } e.stopPropagation(); });
+  ta.addEventListener("pointerdown", (e) => e.stopPropagation());
+  ta.addEventListener("blur", () => { setTimeout(() => { if (editor && editor.el === ta) closeEditor(); }, 0); });
+  renderOverlayFor(v);
+  ta.focus(); if (selectAll) ta.select();
+}
+function positionEditor() {
+  if (!editor) return;
+  const { a, v, el: ta } = editor; const k = v.scale;
+  const [vx, vy] = v.viewport.convertToViewportPoint(a.x, a.y); const w = a.w * k, h = a.h * k;
+  const fs = a.size * k; const fsCss = isMobile() ? Math.max(16, fs) : Math.max(11, fs); const z = fsCss / fs; // スマホは読める大きさに（iOS の自動拡大も避ける）
+  ta.style.left = `${vx}px`; ta.style.top = `${vy - h}px`;
+  ta.style.width = `${Math.max(w * z + 28, 140)}px`; ta.style.height = `${Math.max(h * z + 4, fsCss * 1.5)}px`;
+  ta.style.fontSize = `${fsCss}px`; ta.style.color = COLOR_CSS[a.color]; ta.style.fontFamily = cssFontFor(a.text);
+}
+function syncEditor(a) { if (editor && editor.a === a) { if (editor.el.value !== a.text) editor.el.value = a.text; positionEditor(); } }
+function closeEditor() {
+  if (!editor) return;
+  const { v, el: ta } = editor; editor = null; ta.remove();
+  if (state.views.includes(v)) renderOverlayFor(v);
+}
+
 /* ───────────── 注釈の操作 ─────────────*/
 function measureText(a) {
   // 表示上の幅・高さ（pt）。改行ごとに 1.2 行送り
@@ -1363,7 +1420,8 @@ function addTextAt(vx, vy) {
   // クリック点を文字の左上にする → 表示上の左下は (vx, vy + h*scale)
   const [x, y] = state.viewport.convertToPdfPoint(vx, vy + a.h * state.scale);
   a.x = x; a.y = y;
-  p.annots.push(a); state.selected = a.id; openSheet(); renderOverlay(); renderProps();
+  p.annots.push(a); state.selected = a.id; renderOverlay(); renderProps();
+  return a;
 }
 function addImageAt(vx, vy, img) {
   const p = currentPage(); pushHistory();
@@ -1441,15 +1499,21 @@ el.scroller.addEventListener("pointerdown", (e) => {
   if (!state.pages.length || (e.pointerType === "touch" && touches.size >= 2)) return;
   if (e.button === 1 || (spaceDown && e.button === 0)) { startPan(e); return; }
   if (e.pointerType === "mouse" && e.button !== 0) return;
+  if (e.target.closest(".selbar, .edit")) return;
   const v = viewFromEvent(e);
   if (!v) { if (state.tool === "select") startPan(e, true); return; }
   if (v.i !== state.current) setCurrent(v.i, { quiet: true });
   const rect = v.overlay.getBoundingClientRect();
   const vx = e.clientX - rect.left, vy = e.clientY - rect.top;
   const target = e.target.closest(".annot");
+  if (editor && !(target && +target.dataset.id === editor.a.id)) {
+    // 入力中に別の場所をタップ → 確定して閉じるだけ（新しい文字は置かない）
+    closeEditor();
+    if (!target) { e.preventDefault(); return; }
+  }
   if (target) {
     const a = v.p.annots.find((x) => x.id === +target.dataset.id); if (!a) return;
-    state.selected = a.id; openSheet(); renderOverlays(); renderProps();
+    state.selected = a.id; renderOverlays(); renderProps();
     const isHandle = e.target.classList.contains("handle");
     pushHistory();
     drag = { mode: isHandle ? "resize" : "move", v, a, base: { ...a }, sx: vx, sy: vy, moved: false };
@@ -1459,7 +1523,7 @@ el.scroller.addEventListener("pointerdown", (e) => {
   }
   const T = state.tool;
   if (T === "select") { startPan(e, true); return; }
-  if (T === "text") { addTextAt(vx, vy); return; }
+  if (T === "text") { const a = addTextAt(vx, vy); drag = { mode: "newtext", v, a }; v.overlay.setPointerCapture(e.pointerId); e.preventDefault(); return; }
   if (T === "image") {
     if (state.pendingImage) { addImageAt(vx, vy, state.pendingImage); state.pendingImage = null; renderProps(); }
     else status(t("pickFirst"));
@@ -1502,6 +1566,8 @@ el.scroller.addEventListener("pointermove", (e) => {
     b.style.left = `${Math.min(drag.sx, vx)}px`; b.style.top = `${Math.min(drag.sy, vy)}px`; b.style.width = `${Math.abs(vx - drag.sx)}px`; b.style.height = `${Math.abs(vy - drag.sy)}px`;
     return;
   }
+  if (drag.mode === "newtext") return;
+  if (!drag.moved && Math.hypot(vx - drag.sx, vy - drag.sy) < 4) return;
   const a = drag.a; drag.moved = true; const vp = v.viewport, k = v.scale;
   if (drag.mode === "resize") {
     const dw = (vx - drag.sx) / k, dh = (vy - drag.sy) / k;
@@ -1538,7 +1604,12 @@ function endDrag(e) {
     else addRectAnnot(x, y, w, h);
     return;
   }
-  if (!d.moved) history.past.pop();
+  if (d.mode === "newtext") { if (e.type !== "pointercancel") openEditor(d.a, d.v, { selectAll: true }); return; }
+  if (!d.moved) {
+    history.past.pop();
+    // タップ（動かさず離した）: 文字ならその場で書き直す
+    if (e.type !== "pointercancel" && d.a.type === "text") openEditor(d.a, d.v);
+  }
 }
 el.scroller.addEventListener("pointerup", endDrag); el.scroller.addEventListener("pointercancel", endDrag);
 /* 描きかけ・動かしかけを捨てる（2本指で拡大に切り替わったとき） */
@@ -1547,7 +1618,7 @@ function cancelDrag() {
   const d = drag; drag = null;
   el.scroller.classList.remove("panning");
   if (d.svg) d.svg.remove(); if (d.band) d.band.remove();
-  if ((d.mode === "move" || d.mode === "resize") && history.past.length) restore(history.past.pop());
+  if ((d.mode === "move" || d.mode === "resize" || d.mode === "newtext") && history.past.length) restore(history.past.pop());
   else if (d.mode !== "pan") renderOverlays();
 }
 /* ショートカット。文字入力中（input / textarea）はブラウザ標準に任せる */
@@ -1955,7 +2026,7 @@ function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&a
 applyLang();
 
 // 動作確認用（ドキュメント化しない）。ファイル操作はすべてこのブラウザの中で完結する
-window.GP = { state, undo, redo, history, addFiles, addSource, setTool, setLang, setCurrent, toggleUI, t, addTextAt, addImageAt, addRectAnnot, addLineAnnot, addInkAnnot, addBlankPage, applyCrop, applyForm, revertForm, rotate, movePage, deletePage,
+window.GP = { state, undo, redo, history, addFiles, addSource, setTool, setLang, setCurrent, toggleUI, openEditor, closeEditor, editorState: () => editor, t, addTextAt, addImageAt, addRectAnnot, addLineAnnot, addInkAnnot, addBlankPage, applyCrop, applyForm, revertForm, rotate, movePage, deletePage,
   setZoom, zoomStep, buildPdf, exportPdf, exportOptimized, exportCompressed, exportImages, makeZip, runQpdf, render, parseRange, imageToPdf, version: VERSION };
 </script>
 </body>
