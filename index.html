@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <!--
-  ジェネリックPDF v1.1.0 / Generic PDF
+  ジェネリックPDF v1.2.0 / Generic PDF
   ─────────────────────────────────────────────────────────────
   このファイル1つで動きます。ダブルクリックで開いても、https://ilove-ai.net/pdf で開いても同じです。
   This single file is the whole app. Open it locally or at https://ilove-ai.net/pdf — same thing.
@@ -39,12 +39,12 @@
 -->
 <style>
   :root{
-    --bg:#FFFFFF; --fg:#000000; --mute:#666666; --faint:#DDDDDD;
+    --bg:#FFFFFF; --fg:#000000; --mute:#666666; --faint:#DDDDDD; --stage:#EFEFEF;
     --line:1px solid var(--fg);
     --sans:"Inter","Noto Sans JP",system-ui,sans-serif;
     --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
   }
-  @media (prefers-color-scheme: dark){ :root{ --bg:#000000; --fg:#FFFFFF; --mute:#999999; --faint:#333333; } }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#000000; --fg:#FFFFFF; --mute:#999999; --faint:#333333; --stage:#121212; } }
   *{ box-sizing:border-box; margin:0; padding:0; }
   [hidden]{ display:none !important; }
   html,body{ height:100%; }
@@ -80,11 +80,16 @@
   nav.tools button[aria-pressed="true"]{ background:var(--fg); color:var(--bg); }
   nav.tools .sub{ font-size:11px; color:var(--mute); display:block; }
   nav.tools button[aria-pressed="true"] .sub{ color:var(--bg); opacity:.7; }
-  #stage{ overflow:auto; position:relative; background:var(--bg); }
-  #stage .pagewrap{ padding:24px; display:flex; flex-direction:column; align-items:center; gap:8px; }
-  #pageinfo{ font-family:var(--mono); font-size:12px; display:flex; gap:16px; align-items:center; }
+  #stage{ overflow:hidden; position:relative; background:var(--bg); min-height:0; }
+  #stage .pagewrap{ display:grid; grid-template-rows:auto 1fr; height:100%; min-height:0; }
+  #pageinfo{ font-family:var(--mono); font-size:12px; display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; padding:8px 12px; border-bottom:1px solid var(--faint); }
   #pageinfo button{ padding:2px 10px; }
-  #canvasbox{ position:relative; border:var(--line); line-height:0; touch-action:none; }
+  #pageinfo select{ padding:2px 4px; font-size:12px; font-family:var(--mono); }
+  #pageinfo .sep{ width:1px; height:16px; background:var(--faint); }
+  /* スクロール面。拡大したページは margin:auto の block なので、狭いときは中央・広いときは左端から全部たどれる
+     （flex の align-items:center だと、はみ出した左側がスクロールで届かなくなる） */
+  #scroller{ overflow:auto; position:relative; background:var(--stage); }
+  #canvasbox{ position:relative; border:var(--line); line-height:0; touch-action:none; width:max-content; margin:24px auto; }
   #canvasbox canvas{ display:block; }
   #overlay{ position:absolute; inset:0; overflow:hidden; }
   #overlay.cross{ cursor:crosshair; }
@@ -165,7 +170,9 @@
     nav.tools button{ border-bottom:0; border-right:var(--line); white-space:nowrap; padding:12px; }
     nav.tools .sub{ display:none; }
     aside.props{ border-left:0; border-top:var(--line); max-height:42vh; padding:16px; }
-    #stage .pagewrap{ padding:8px; }
+    #canvasbox{ margin:8px auto; }
+    #pageinfo{ gap:8px; padding:6px 8px; }
+    #pageinfo #pagesize{ display:none; }
     header{ gap:8px; height:48px; padding:0 8px; }
     header h1{ font-size:14px; white-space:nowrap; }
     header .ver, header a.gh, header #fname{ display:none; }
@@ -177,7 +184,7 @@
 <div id="app">
   <header>
     <h1>ジェネリックPDF</h1>
-    <span class="ver">v1.1.0</span>
+    <span class="ver">v1.2.0</span>
     <a class="gh" href="https://github.com/takumi-golf/generic-pdf" target="_blank" rel="noopener" data-t="source">ソース →</a>
     <span class="spacer"></span>
     <span id="fname" class="mono mute"></span>
@@ -206,10 +213,16 @@
           <span id="pagenum">1 / 1</span>
           <button id="btn-next">→</button>
           <span id="pagesize" class="mute"></span>
+          <span class="sep"></span>
+          <button id="btn-zoomout" aria-label="zoom out">−</button>
+          <select id="zoomsel" aria-label="zoom"></select>
+          <button id="btn-zoomin" aria-label="zoom in">＋</button>
         </div>
-        <div id="canvasbox">
-          <canvas id="cv"></canvas>
-          <div id="overlay"></div>
+        <div id="scroller">
+          <div id="canvasbox">
+            <canvas id="cv"></canvas>
+            <div id="overlay"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -234,7 +247,7 @@ if (!window.PDFLib || !window.fontkit) {
 }
 const { PDFDocument, StandardFonts, degrees, rgb, BlendMode, LineCapStyle, LineJoinStyle,
   pushGraphicsState, popGraphicsState, setLineWidth, setStrokingColor, setLineCap, setLineJoin, moveTo, lineTo, stroke } = PDFLib;
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 const HOST = "https://ilove-ai.net";
 // 同梱サブセットは同一オリジン（本番・ローカル配信）を先に試し、単体で開いたとき（file://）は本番から取る
 const FONT_SUBSET_PATH = "/pdf/fonts/NotoSansJP-Regular.subset.otf";
@@ -277,6 +290,8 @@ const STR = {
   "help.body": ["PDF か画像を読み込むと、左の効能が使えます。ファイルはこのブラウザの中だけで処理されます。", "Load a PDF or image and the tools on the left become available. Everything stays inside this browser."],
   "keys.title": ["ショートカット", "Shortcuts"], "keys.undo": ["戻る / やり直す", "Undo / redo"], "keys.save": ["保存", "Save"], "keys.open": ["ファイルを開く", "Open file"],
   "keys.del": ["選択中のものを削除", "Delete selection"], "keys.arrow": ["矢印（Shift で10倍）", "Arrows (Shift = ×10)"], "keys.move": ["選択中のものを動かす", "Nudge selection"],
+  fitWidth: ["幅に合わせる", "Fit width"], fitPage: ["全体を表示", "Fit page"], shortWidth: ["幅", "width"], shortPage: ["全体", "page"],
+  "keys.zoom": ["Ctrl+＋ / Ctrl+− / Ctrl+0", "Ctrl+＋ / Ctrl+− / Ctrl+0"], "keys.zoomd": ["拡大 / 縮小 / 幅に合わせる（Ctrl＋ホイール、スマホは2本指でも）", "Zoom in / out / fit width (Ctrl+wheel, or pinch on a phone)"],
   "keys.page": ["← → / PageUp PageDown", "← → / PageUp PageDown"], "keys.pagemove": ["ページ移動", "Previous / next page"], "keys.tools": ["1〜9", "1–9"], "keys.toolsw": ["効能の切り替え", "Switch tool"],
   pickPdf: ["PDF か PNG / JPG を選んでください", "Choose a PDF or a PNG / JPG"],
   bigFile: ["{name} は {mb}MB あります。ブラウザのメモリが足りずに落ちることがあります。続けますか？", "{name} is {mb}MB. The browser may run out of memory. Continue?"],
@@ -392,6 +407,7 @@ const state = {
   tool: null,
   selected: null,       // annot id
   scale: 1,
+  zoom: "fit",          // "fit"（幅に合わせる）/ "page"（全体）/ 数値（1 = 100%）
   viewport: null,
   baseName: "document",
   fontBytes: null,      // サブセット
@@ -432,7 +448,7 @@ function redo() { if (!history.future.length) { status(t("noRedo")); return; } h
 function shortcutHelp() {
   return `<div class="row" style="margin-top:24px"><label>${t("keys.title")}</label>
 <table class="keys"><tr><td>Ctrl+Z / Ctrl+Shift+Z</td><td>${t("keys.undo")}</td></tr><tr><td>Ctrl+S</td><td>${t("keys.save")}</td></tr><tr><td>Ctrl+O</td><td>${t("keys.open")}</td></tr>
-<tr><td>Delete</td><td>${t("keys.del")}</td></tr><tr><td>${t("keys.arrow")}</td><td>${t("keys.move")}</td></tr><tr><td>${t("keys.page")}</td><td>${t("keys.pagemove")}</td></tr><tr><td>${t("keys.tools")}</td><td>${t("keys.toolsw")}</td></tr></table></div>`;
+<tr><td>Delete</td><td>${t("keys.del")}</td></tr><tr><td>${t("keys.arrow")}</td><td>${t("keys.move")}</td></tr><tr><td>${t("keys.page")}</td><td>${t("keys.pagemove")}</td></tr><tr><td>${t("keys.zoom")}</td><td>${t("keys.zoomd")}</td></tr><tr><td>${t("keys.tools")}</td><td>${t("keys.toolsw")}</td></tr></table></div>`;
 }
 
 /* ───────────── DOM ─────────────*/
@@ -442,6 +458,7 @@ const el = {
   props: $("#props"), status: $("#status"), fname: $("#fname"), pagenum: $("#pagenum"), pagesize: $("#pagesize"),
   btnSave: $("#btn-save"), btnAdd: $("#btn-add"), btnPrev: $("#btn-prev"), btnNext: $("#btn-next"), btnLang: $("#btn-lang"),
   filePdf: $("#file-pdf"), fileImg: $("#file-img"), stage: $("#stage"), tools: $("#tools"),
+  scroller: $("#scroller"), canvasbox: $("#canvasbox"), zoomSel: $("#zoomsel"), btnZoomIn: $("#btn-zoomin"), btnZoomOut: $("#btn-zoomout"),
 };
 
 function status(msg, ms = 2400) {
@@ -584,11 +601,10 @@ async function render() {
   if (seq !== renderSeq) return; // すでに次の描画が始まっている
   const rotation = (page.rotate + p.extraRotation) % 360;
   const base = page.getViewport({ scale: 1, rotation });
-  const maxW = Math.max(240, el.stage.clientWidth - 50);
-  const scale = Math.min(maxW / base.width, 1.6);
+  const scale = scaleFor(base);
   const viewport = page.getViewport({ scale, rotation });
   state.scale = scale; state.viewport = viewport;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = dprFor(viewport);
   el.cv.width = Math.floor(viewport.width * dpr); el.cv.height = Math.floor(viewport.height * dpr);
   el.cv.style.width = `${Math.floor(viewport.width)}px`; el.cv.style.height = `${Math.floor(viewport.height)}px`;
   const ctx = el.cv.getContext("2d");
@@ -603,9 +619,70 @@ async function render() {
   el.pagenum.textContent = `${state.current + 1} / ${state.pages.length}`;
   el.pagesize.textContent = `${Math.round(base.width)}×${Math.round(base.height)}pt${rotation ? ` ・${t("rotated", { deg: rotation })}` : ""}`;
   el.btnPrev.disabled = state.current === 0; el.btnNext.disabled = state.current >= state.pages.length - 1;
+  syncZoomUI();
   renderOverlay();
   renderProps();
 }
+
+/* ───────────── 拡大・縮小 ─────────────
+   state.zoom が "fit" / "page" のときは画面の大きさから、数値のときはそのまま倍率にする。
+   1 = 100%（1pt を 1 CSS ピクセルで描く） */
+const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+const ZOOM_MIN = 0.1, ZOOM_MAX = 8;
+function viewSize() {
+  const pad = 56;
+  return { w: Math.max(200, (el.scroller.clientWidth || el.stage.clientWidth) - pad), h: Math.max(200, (el.scroller.clientHeight || 600) - pad) };
+}
+function scaleFor(base) {
+  const { w, h } = viewSize();
+  if (state.zoom === "fit") return Math.min(w / base.width, 1.6);
+  if (state.zoom === "page") return Math.min(w / base.width, h / base.height);
+  return clamp(state.zoom, ZOOM_MIN, ZOOM_MAX);
+}
+/* 拡大時に巨大な canvas を作らない。ブラウザの上限（辺・面積）を超えると描画そのものが失敗する */
+function dprFor(vp) {
+  const MAX_SIDE = 8192, MAX_AREA = 16e6;
+  const d = Math.min(window.devicePixelRatio || 1, 2, MAX_SIDE / vp.width, MAX_SIDE / vp.height, Math.sqrt(MAX_AREA / (vp.width * vp.height)));
+  return Math.max(0.4, d);
+}
+function syncZoomUI() {
+  const pct = `${Math.round(state.scale * 100)}%`;
+  const asStep = typeof state.zoom === "number" && ZOOM_STEPS.includes(state.zoom);
+  const label = state.zoom === "fit" ? `${pct}・${t("shortWidth")}` : state.zoom === "page" ? `${pct}・${t("shortPage")}` : pct;
+  const sig = `${lang}|${asStep ? "" : label}`;
+  if (el.zoomSel.dataset.sig !== sig) {
+    el.zoomSel.dataset.sig = sig;
+    el.zoomSel.innerHTML = [
+      ...(asStep ? [] : [`<option value="cur">${label}</option>`]),
+      `<option value="fit">${t("fitWidth")}</option>`,
+      `<option value="page">${t("fitPage")}</option>`,
+      ...ZOOM_STEPS.map((z) => `<option value="${z}">${Math.round(z * 100)}%</option>`),
+    ].join("");
+  }
+  el.zoomSel.value = asStep ? String(state.zoom) : "cur";
+  el.zoomSel.title = pct;
+  el.btnZoomIn.disabled = state.scale >= ZOOM_MAX - 1e-6;
+  el.btnZoomOut.disabled = state.scale <= ZOOM_MIN + 1e-6;
+}
+/* 倍率を変える。anchor（表示座標）を渡すと、その点が画面上の同じ位置に留まるようスクロールを合わせる */
+async function setZoom(z, anchor) {
+  const before = anchor ? { s: state.scale, cx: anchor.x, cy: anchor.y,
+    dx: el.scroller.scrollLeft + anchor.x - el.canvasbox.offsetLeft, dy: el.scroller.scrollTop + anchor.y - el.canvasbox.offsetTop } : null;
+  state.zoom = typeof z === "number" ? clamp(z, ZOOM_MIN, ZOOM_MAX) : z;
+  await render();
+  if (before) {
+    const k = state.scale / before.s;
+    el.scroller.scrollLeft = el.canvasbox.offsetLeft + before.dx * k - before.cx;
+    el.scroller.scrollTop = el.canvasbox.offsetTop + before.dy * k - before.cy;
+  }
+}
+function zoomStep(dir, anchor) {
+  const cur = state.scale;
+  const next = dir > 0 ? ZOOM_STEPS.find((z) => z > cur + 1e-6) : [...ZOOM_STEPS].reverse().find((z) => z < cur - 1e-6);
+  setZoom(next === undefined ? clamp(cur * (dir > 0 ? 1.25 : 0.8), ZOOM_MIN, ZOOM_MAX) : next, anchor);
+}
+function stagePoint(clientX, clientY) { const r = el.scroller.getBoundingClientRect(); return { x: clientX - r.left, y: clientY - r.top }; }
+function centerAnchor() { const r = el.scroller.getBoundingClientRect(); return { x: r.width / 2, y: r.height / 2 }; }
 
 /* 表示上の「ページの箱」（トリミング済みならその範囲）。座標は viewport のピクセル・y は下向き */
 function displayBox(vp, p) {
@@ -1233,12 +1310,24 @@ function endDrag(e) {
   if (!d.moved) history.past.pop();
 }
 el.overlay.addEventListener("pointerup", endDrag); el.overlay.addEventListener("pointercancel", endDrag);
+/* 描きかけ・動かしかけを捨てる（2本指で拡大に切り替わったとき） */
+function cancelDrag() {
+  if (!drag) return;
+  const d = drag; drag = null;
+  const tmp = $("#inktemp"); if (tmp) tmp.remove();
+  const b = $("#band"); if (b) b.remove();
+  if ((d.mode === "move" || d.mode === "resize") && history.past.length) restore(history.past.pop());
+  else renderOverlay();
+}
 /* ショートカット。文字入力中（input / textarea）はブラウザ標準に任せる */
 document.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
   const mod = e.ctrlKey || e.metaKey;
   if (mod && !e.shiftKey && e.key.toLowerCase() === "s") { e.preventDefault(); if (state.pages.length) exportPdf(); return; }
   if (mod && e.key.toLowerCase() === "o") { e.preventDefault(); el.filePdf.click(); return; }
+  if (state.pages.length && mod && (e.key === "=" || e.key === "+" || e.key === ";")) { e.preventDefault(); zoomStep(1, centerAnchor()); return; }
+  if (state.pages.length && mod && (e.key === "-" || e.key === "_")) { e.preventDefault(); zoomStep(-1, centerAnchor()); return; }
+  if (state.pages.length && mod && e.key === "0") { e.preventDefault(); setZoom("fit"); return; }
   if (typing) return;
   if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
@@ -1542,6 +1631,39 @@ for (const tg of [el.dropbox, el.stage]) {
   tg.addEventListener("dragleave", () => el.dropbox.classList.remove("over"));
   tg.addEventListener("drop", (e) => { e.preventDefault(); el.dropbox.classList.remove("over"); if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
 }
+let zooming = false;
+el.btnZoomIn.addEventListener("click", () => zoomStep(1, centerAnchor()));
+el.btnZoomOut.addEventListener("click", () => zoomStep(-1, centerAnchor()));
+el.zoomSel.addEventListener("change", (e) => { const v = e.target.value; if (v === "cur") return; setZoom(v === "fit" || v === "page" ? v : +v, centerAnchor()); });
+// Ctrl＋ホイール（トラックパッドのピンチもこれで来る）。カーソルの下の点を動かさない
+el.scroller.addEventListener("wheel", (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  if (!state.pages.length || zooming) return;
+  zooming = true;
+  setZoom(clamp(state.scale * (e.deltaY < 0 ? 1.12 : 1 / 1.12), ZOOM_MIN, ZOOM_MAX), stagePoint(e.clientX, e.clientY)).finally(() => { zooming = false; });
+}, { passive: false });
+// スマホの2本指。1本目で始まった描画・移動は取り消してから拡大に切り替える
+const touches = new Map();
+const touchDist = () => { const [a, b] = [...touches.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+const touchMid = () => { const [a, b] = [...touches.values()]; const r = el.scroller.getBoundingClientRect(); return { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top }; };
+let pinch = null;
+el.scroller.addEventListener("pointerdown", (e) => {
+  if (e.pointerType !== "touch") return;
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (touches.size === 2) { cancelDrag(); pinch = { d0: touchDist(), s0: state.scale }; e.stopPropagation(); e.preventDefault(); }
+}, true);
+el.scroller.addEventListener("pointermove", (e) => {
+  if (!touches.has(e.pointerId)) return;
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!pinch || touches.size !== 2) return;
+  e.stopPropagation(); e.preventDefault();
+  if (zooming) return;
+  const d = touchDist(); if (!pinch.d0 || !d) return;
+  zooming = true;
+  setZoom(clamp(pinch.s0 * (d / pinch.d0), ZOOM_MIN, ZOOM_MAX), touchMid()).finally(() => { zooming = false; });
+}, true);
+for (const ev of ["pointerup", "pointercancel"]) el.scroller.addEventListener(ev, (e) => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; }, true);
 window.addEventListener("resize", () => { if (state.pages.length) render(); });
 window.addEventListener("beforeunload", (e) => { if (state.pages.some((p) => p.annots.length || p.crop)) { e.preventDefault(); e.returnValue = ""; } });
 
@@ -1552,7 +1674,7 @@ applyLang();
 
 // 動作確認用（ドキュメント化しない）。ファイル操作はすべてこのブラウザの中で完結する
 window.GP = { state, undo, redo, history, addFiles, addSource, setTool, setLang, t, addTextAt, addImageAt, addRectAnnot, addLineAnnot, addInkAnnot, addBlankPage, applyCrop, applyForm, revertForm, rotate, movePage, deletePage,
-  buildPdf, exportPdf, exportOptimized, exportCompressed, exportImages, makeZip, runQpdf, render, parseRange, imageToPdf, version: VERSION };
+  setZoom, zoomStep, buildPdf, exportPdf, exportOptimized, exportCompressed, exportImages, makeZip, runQpdf, render, parseRange, imageToPdf, version: VERSION };
 </script>
 </body>
 </html>

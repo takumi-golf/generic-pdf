@@ -34,7 +34,7 @@ your file anywhere. The only network requests fetch libraries and fonts.
 - 閉じれば全部消える / Close the tab and everything is gone
 - 1 ファイルで動く。ダブルクリックで開いても同じ / One file. Double-click it and it works the same
 
-## できること（v1.1.0）/ What it does
+## できること（v1.2.0）/ What it does
 
 | # | 効能 / Tool | 内容 / Details |
 |---|---|---|
@@ -54,6 +54,9 @@ your file anywhere. The only network requests fetch libraries and fonts.
 | 14 | 画像に変換 / To images | PDF → PNG / JPG（72・150・300 dpi、複数ページは zip）。PNG / JPG をドロップすれば画像 → PDF / PDF → PNG / JPG (72, 150, 300 dpi; zip for several pages). Drop PNG / JPG to go the other way |
 | 15 | 圧縮 / Compress | 劣化なし（構造の最適化）と画像化（劣化あり・文字が検索不能になる旨を明記）/ Lossless (structure) and rasterize (lossy, text becomes unsearchable, and it says so) |
 | 16 | パスワード / Password | AES-256 で保護（開く／権限、印刷・編集の禁止）。保護付き PDF はパスワードを聞いて外す / Protect with AES-256 (open / permissions, disallow print or edit). Protected PDFs ask for the password and come in unlocked |
+
+**拡大・縮小**: ツールバーの ＋ / −、倍率の選択（幅に合わせる・全体を表示・25〜400%）、Ctrl＋ホイール（カーソルの下が動きません）、Ctrl＋＋ / Ctrl＋− / Ctrl＋0、スマホは2本指。
+**Zoom**: + / − in the toolbar, a zoom menu (fit width, fit page, 25–400%), Ctrl+wheel (anchored under the cursor), Ctrl++ / Ctrl+- / Ctrl+0, or pinch on a phone.
 
 Ctrl+Z / Ctrl+Shift+Z、Ctrl+S、Ctrl+O、Delete、矢印キー、← →、1〜9 のショートカットあり。スマホでも動きます。
 Shortcuts: Ctrl+Z / Ctrl+Shift+Z, Ctrl+S, Ctrl+O, Delete, arrow keys, ← →, 1–9. Works on phones.
