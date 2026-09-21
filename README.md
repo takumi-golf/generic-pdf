@@ -34,7 +34,7 @@ your file anywhere. The only network requests fetch libraries and fonts.
 - 閉じれば全部消える / Close the tab and everything is gone
 - 1 ファイルで動く。ダブルクリックで開いても同じ / One file. Double-click it and it works the same
 
-## できること（v1.2.0）/ What it does
+## できること（v1.3.0）/ What it does
 
 | # | 効能 / Tool | 内容 / Details |
 |---|---|---|
@@ -55,11 +55,14 @@ your file anywhere. The only network requests fetch libraries and fonts.
 | 15 | 圧縮 / Compress | 劣化なし（構造の最適化）と画像化（劣化あり・文字が検索不能になる旨を明記）/ Lossless (structure) and rasterize (lossy, text becomes unsearchable, and it says so) |
 | 16 | パスワード / Password | AES-256 で保護（開く／権限、印刷・編集の禁止）。保護付き PDF はパスワードを聞いて外す / Protect with AES-256 (open / permissions, disallow print or edit). Protected PDFs ask for the password and come in unlocked |
 
+**見る・動かす**: 全ページを縦に連続表示（Acrobat と同じ）。ページ番号を打って移動、← → / Home / End。最初は「選択・移動」モードで、紙をクリックしても何も置かれず、空いている所をドラッグすると紙が動きます（他の効能でも Space＋ドラッグ）。左右のパネルは `[` `]` か上の « » で畳めます。
+**View and move**: all pages in one continuous scroll (like Acrobat). Type a page number to jump, ← → / Home / End. The default mode is Select / pan: clicking the page places nothing, dragging empty space pans (Space + drag in any tool). Fold the side panels with `[` `]` or the « » buttons.
+
 **拡大・縮小**: ツールバーの ＋ / −、倍率の選択（幅に合わせる・全体を表示・25〜400%）、Ctrl＋ホイール（カーソルの下が動きません）、Ctrl＋＋ / Ctrl＋− / Ctrl＋0、スマホは2本指。
 **Zoom**: + / − in the toolbar, a zoom menu (fit width, fit page, 25–400%), Ctrl+wheel (anchored under the cursor), Ctrl++ / Ctrl+- / Ctrl+0, or pinch on a phone.
 
-Ctrl+Z / Ctrl+Shift+Z、Ctrl+S、Ctrl+O、Delete、矢印キー、← →、1〜9 のショートカットあり。スマホでも動きます。
-Shortcuts: Ctrl+Z / Ctrl+Shift+Z, Ctrl+S, Ctrl+O, Delete, arrow keys, ← →, 1–9. Works on phones.
+Ctrl+Z / Ctrl+Shift+Z、Ctrl+S、Ctrl+O、Delete、矢印キー、V / Esc（選択に戻る）、1〜9 のショートカットあり。スマホでも動きます。
+Shortcuts: Ctrl+Z / Ctrl+Shift+Z, Ctrl+S, Ctrl+O, Delete, arrow keys, V / Esc (back to select), 1–9. Works on phones.
 
 ## できないこと / What it cannot do
 
@@ -80,11 +83,11 @@ To be honest, these are not supported. **Apart from OCR, none of them are planne
 
 PDF も画像も `FileReader` でブラウザのメモリに読むだけで、`fetch` / `XMLHttpRequest` でファイル本体を送る処理はコード上に存在しません。
 ネットワークに出るのは、ライブラリ（pdf-lib / pdf.js / fontkit / qpdf-wasm）と日本語フォント、見た目用の Web フォントの取得だけです。
-保存は Blob を `a[download]` で落とすだけ。`localStorage` に置くのは言語設定（`gp-lang`）だけです。閉じれば全部消えます。
+保存は Blob を `a[download]` で落とすだけ。`localStorage` に置くのは言語（`gp-lang`）と左右パネルの開閉（`gp-ui`）だけです。閉じれば全部消えます。
 
 Your PDFs and images are read into browser memory with `FileReader`. There is no `fetch` / `XMLHttpRequest` in the code that sends a file anywhere.
 The only network requests fetch libraries (pdf-lib / pdf.js / fontkit / qpdf-wasm), the Japanese font and the web fonts used for the UI.
-Saving is a Blob handed to `a[download]`. The only thing kept in `localStorage` is the language (`gp-lang`). Close the tab and everything is gone.
+Saving is a Blob handed to `a[download]`. The only things kept in `localStorage` are the language (`gp-lang`) and whether the side panels are folded (`gp-ui`). Close the tab and everything is gone.
 
 確認方法 / How to check: ブラウザの開発者ツール → ネットワーク → ファイルを読み込んで操作 → POST が 1 件もないこと。
 Open your browser's developer tools → Network → load and edit a file → there is not a single POST.

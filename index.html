@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <!--
-  ジェネリックPDF v1.2.0 / Generic PDF
+  ジェネリックPDF v1.3.0 / Generic PDF
   ─────────────────────────────────────────────────────────────
   このファイル1つで動きます。ダブルクリックで開いても、https://ilove-ai.net/pdf で開いても同じです。
   This single file is the whole app. Open it locally or at https://ilove-ai.net/pdf — same thing.
@@ -27,7 +27,7 @@
   - fetch / XMLHttpRequest でファイル本体を送る処理は、このファイルの中に存在しません。
     ネットワークに出るのは「ライブラリ」「日本語フォント」「Web フォント（見た目用）」の取得だけです。
     Nothing you open is ever sent anywhere. The only network requests are for libraries and fonts.
-  - 保存は Blob を a[download] で落とすだけ。localStorage に置くのは言語設定（gp-lang）だけです。
+  - 保存は Blob を a[download] で落とすだけ。localStorage に置くのは言語（gp-lang）と左右パネルの開閉（gp-ui）だけです。
   - 閉じれば全部消えます。
 
   ライブラリ（すべてバージョン固定・必要になったときだけ読み込む） / Libraries (pinned, loaded on demand):
@@ -72,8 +72,14 @@
   header .spacer{ flex:1; }
   header a.gh{ font-family:var(--mono); font-size:12px; text-decoration:none; border-bottom:1px solid currentColor; white-space:nowrap; }
   header button.lang{ font-family:var(--mono); font-size:12px; padding:4px 10px; }
-  main{ display:grid; grid-template-columns:208px 1fr 296px; min-height:0; }
-  nav.tools{ border-right:var(--line); display:flex; flex-direction:column; overflow-y:auto; }
+  header button.tgl{ font-family:var(--mono); font-size:14px; padding:2px 8px; line-height:1.4; }
+  /* 左右のパネルは hidden で畳む。列は auto なので畳むと幅 0 になり、中央が広がる */
+  main{ display:grid; grid-template-columns:auto 1fr auto; min-height:0; }
+  /* 列は明示する。自動配置だと、左を畳んだときに中央が左の列（auto）へ落ちて広がらない */
+  nav.tools{ grid-column:1; width:208px; border-right:var(--line); display:flex; flex-direction:column; overflow-y:auto; }
+  #stage{ grid-column:2; }
+  aside.props{ grid-column:3; }
+  nav.tools button.sel{ border-bottom:var(--line); }
   nav.tools .grp{ font-family:var(--mono); font-size:11px; color:var(--mute); padding:12px 16px 4px; border-bottom:var(--line); }
   nav.tools button{ border:0; border-bottom:var(--line); text-align:left; padding:10px 16px; display:flex; gap:12px; align-items:baseline; line-height:1.4; }
   nav.tools button .no{ font-family:var(--mono); font-size:12px; width:24px; flex:none; }
@@ -85,17 +91,23 @@
   #pageinfo{ font-family:var(--mono); font-size:12px; display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; padding:8px 12px; border-bottom:1px solid var(--faint); }
   #pageinfo button{ padding:2px 10px; }
   #pageinfo select{ padding:2px 4px; font-size:12px; font-family:var(--mono); }
+  #pageinfo input{ width:3.4em; padding:2px 4px; font-size:12px; font-family:var(--mono); text-align:center; -moz-appearance:textfield; }
+  #pageinfo input::-webkit-outer-spin-button, #pageinfo input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
   #pageinfo .sep{ width:1px; height:16px; background:var(--faint); }
-  /* スクロール面。拡大したページは margin:auto の block なので、狭いときは中央・広いときは左端から全部たどれる
+  /* スクロール面。全ページを縦に並べる（Acrobat と同じ連続表示）。
+     ページは margin:auto の block なので、狭いときは中央・広いときは左端から全部たどれる
      （flex の align-items:center だと、はみ出した左側がスクロールで届かなくなる） */
   #scroller{ overflow:auto; position:relative; background:var(--stage); }
-  #canvasbox{ position:relative; border:var(--line); line-height:0; touch-action:none; width:max-content; margin:24px auto; }
-  #canvasbox canvas{ display:block; }
-  #overlay{ position:absolute; inset:0; overflow:hidden; }
-  #overlay.cross{ cursor:crosshair; }
-  #band{ position:absolute; border:1px dashed var(--fg); pointer-events:none; }
-  #inktemp{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
-  aside.props{ border-left:var(--line); padding:24px; overflow:auto; font-size:14px; }
+  #pages{ width:max-content; min-width:100%; padding:24px 24px 40vh; }
+  .pageview{ position:relative; border:var(--line); line-height:0; touch-action:none; background:#fff; margin:0 auto 16px; }
+  .pageview canvas{ display:block; }
+  .pageview .overlay{ position:absolute; inset:0; overflow:hidden; }
+  #pages.cross .overlay{ cursor:crosshair; }
+  #pages.hand .overlay{ cursor:grab; }
+  #scroller.panning, #scroller.panning .overlay{ cursor:grabbing; }
+  .band{ position:absolute; border:1px dashed var(--fg); pointer-events:none; }
+  .inktemp{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+  aside.props{ width:296px; border-left:var(--line); padding:24px; overflow:auto; font-size:14px; }
   aside.props h2{ font-family:var(--mono); font-size:12px; font-weight:400; color:var(--mute); margin-bottom:8px; }
   aside.props h3{ font-size:13px; font-weight:700; margin:24px 0 8px; padding-top:16px; border-top:1px solid var(--faint); }
   aside.props .row{ margin-bottom:16px; }
@@ -127,7 +139,7 @@
   .annot.shape.rect{ border-style:solid; }
   .annot.shape.highlight{ background:rgba(255,235,0,.55); mix-blend-mode:multiply; }
   .annot.shape.white{ background:#fff; }
-  #overlay.shape-mode .annot.shape.white{ outline:1px dashed #999; }
+  #pages.shape-mode .annot.shape.white{ outline:1px dashed #999; }
   .annot.redact{ background:#000; }
   svg.annot{ overflow:visible; border:0; pointer-events:none; }
   svg.annot.selected{ outline:1px dashed var(--fg); }
@@ -149,7 +161,7 @@
 
   /* ── ページ一覧（サムネイル） ── */
   #thumbs{ display:flex; flex-direction:column; gap:8px; }
-  .thumb{ display:grid; grid-template-columns:64px 1fr; gap:8px; border:var(--line); padding:8px; align-items:center; }
+  .thumb{ display:grid; grid-template-columns:64px 1fr; gap:8px; border:var(--line); padding:8px; align-items:center; cursor:pointer; }
   .thumb.current{ background:var(--fg); color:var(--bg); }
   .thumb.current button{ background:var(--fg); color:var(--bg); border-color:var(--bg); }
   .thumb.current button:hover{ background:var(--bg); color:var(--fg); }
@@ -165,12 +177,15 @@
   /* ── スマホ ── */
   @media (max-width:768px){
     main{ grid-template-columns:1fr; grid-template-rows:auto 1fr auto; }
-    nav.tools{ flex-direction:row; border-right:0; border-bottom:var(--line); overflow-x:auto; overflow-y:hidden; }
+    nav.tools{ grid-column:1; grid-row:1; width:auto; flex-direction:row; border-right:0; border-bottom:var(--line); overflow-x:auto; overflow-y:hidden; }
+    #stage{ grid-column:1; grid-row:2; }
+    aside.props{ grid-column:1; grid-row:3; }
     nav.tools .grp{ display:none; }
     nav.tools button{ border-bottom:0; border-right:var(--line); white-space:nowrap; padding:12px; }
     nav.tools .sub{ display:none; }
-    aside.props{ border-left:0; border-top:var(--line); max-height:42vh; padding:16px; }
-    #canvasbox{ margin:8px auto; }
+    aside.props{ width:auto; border-left:0; border-top:var(--line); max-height:42vh; padding:16px; }
+    #pages{ padding:8px 8px 30vh; }
+    .pageview{ margin-bottom:8px; }
     #pageinfo{ gap:8px; padding:6px 8px; }
     #pageinfo #pagesize{ display:none; }
     header{ gap:8px; height:48px; padding:0 8px; }
@@ -183,14 +198,16 @@
 <body>
 <div id="app">
   <header>
+    <button id="btn-nav" class="tgl" aria-label="tools panel">«</button>
     <h1>ジェネリックPDF</h1>
-    <span class="ver">v1.2.0</span>
+    <span class="ver">v1.3.0</span>
     <a class="gh" href="https://github.com/takumi-golf/generic-pdf" target="_blank" rel="noopener" data-t="source">ソース →</a>
     <span class="spacer"></span>
     <span id="fname" class="mono mute"></span>
     <button id="btn-add" hidden data-t="add">＋ 追加</button>
     <button id="btn-save" class="primary" hidden data-t="save">保存 ↓</button>
     <button id="btn-lang" class="lang" aria-label="Language">EN</button>
+    <button id="btn-props" class="tgl" aria-label="settings panel">»</button>
   </header>
   <main>
     <nav class="tools" id="tools" aria-label="tools"></nav>
@@ -210,7 +227,7 @@
       <div class="pagewrap" id="pagewrap" hidden>
         <div id="pageinfo">
           <button id="btn-prev">←</button>
-          <span id="pagenum">1 / 1</span>
+          <input id="pageinput" type="number" min="1" value="1" aria-label="page"><span id="pagetotal">/ 1</span>
           <button id="btn-next">→</button>
           <span id="pagesize" class="mute"></span>
           <span class="sep"></span>
@@ -218,12 +235,7 @@
           <select id="zoomsel" aria-label="zoom"></select>
           <button id="btn-zoomin" aria-label="zoom in">＋</button>
         </div>
-        <div id="scroller">
-          <div id="canvasbox">
-            <canvas id="cv"></canvas>
-            <div id="overlay"></div>
-          </div>
-        </div>
+        <div id="scroller"><div id="pages"></div></div>
       </div>
     </section>
     <aside class="props" id="props"></aside>
@@ -247,7 +259,7 @@ if (!window.PDFLib || !window.fontkit) {
 }
 const { PDFDocument, StandardFonts, degrees, rgb, BlendMode, LineCapStyle, LineJoinStyle,
   pushGraphicsState, popGraphicsState, setLineWidth, setStrokingColor, setLineCap, setLineJoin, moveTo, lineTo, stroke } = PDFLib;
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 const HOST = "https://ilove-ai.net";
 // 同梱サブセットは同一オリジン（本番・ローカル配信）を先に試し、単体で開いたとき（file://）は本番から取る
 const FONT_SUBSET_PATH = "/pdf/fonts/NotoSansJP-Regular.subset.otf";
@@ -268,6 +280,14 @@ const STR = {
   "cant.head": ["できないこと", "What it cannot do"],
   "cant.body": ["既存の文字や画像そのものの書き換え（上から重ねるだけ）／Word・Excel への変換／PDF/A・PDF/X への変換／証明書による電子署名（見た目の署名は可）／2つのPDFの比較／OCR（文字認識）。OCR 以外は対応する予定がありません。",
     "Editing existing text or images in place (you can only overlay) / converting to Word or Excel / PDF/A or PDF/X / certificate-based digital signatures (a drawn signature is fine) / comparing two PDFs / OCR. Apart from OCR, none of these are planned."],
+  "tool.select": ["選択・移動", "Select / pan"], "tool.select.sub": ["クリックで選ぶ・ドラッグで動かす", "Click to select, drag to pan"],
+  "select.note": ["置いた文字や図形をクリックすると選べます。空いている所をドラッグすると紙が動きます（他の効能でも Space を押しながらドラッグ）。", "Click a mark to select it. Drag empty space to pan the page (hold Space to pan in any tool)."],
+  thumbsTitle: ["ページ", "Pages"],
+  hideTools: ["左のパネルを畳む（[）", "Hide the tools panel ([)"], showTools: ["左のパネルを開く（[）", "Show the tools panel ([)"],
+  hideProps: ["右のパネルを畳む（]）", "Hide the settings panel (])"], showProps: ["右のパネルを開く（]）", "Show the settings panel (])"],
+  "keys.select": ["V / Esc", "V / Esc"], "keys.selectd": ["選択・移動に戻る", "Back to select"],
+  "keys.space": ["Space＋ドラッグ", "Space + drag"], "keys.spaced": ["紙を動かす（どの効能でも）", "Pan (in any tool)"],
+  "keys.panels": ["[ / ]", "[ / ]"], "keys.panelsd": ["左 / 右のパネルを畳む・開く", "Toggle the left / right panel"],
   "group.write": ["書く", "Write"], "group.page": ["ページ", "Pages"], "group.finish": ["仕上げ", "Finish"], "group.out": ["出力", "Output"],
   "tool.text": ["文字を書く", "Text"], "tool.text.sub": ["クリックして配置", "Click to place"],
   "tool.image": ["印影・画像", "Stamp / image"], "tool.image.sub": ["PNG / JPG を貼る", "Place PNG / JPG"],
@@ -292,7 +312,7 @@ const STR = {
   "keys.del": ["選択中のものを削除", "Delete selection"], "keys.arrow": ["矢印（Shift で10倍）", "Arrows (Shift = ×10)"], "keys.move": ["選択中のものを動かす", "Nudge selection"],
   fitWidth: ["幅に合わせる", "Fit width"], fitPage: ["全体を表示", "Fit page"], shortWidth: ["幅", "width"], shortPage: ["全体", "page"],
   "keys.zoom": ["Ctrl+＋ / Ctrl+− / Ctrl+0", "Ctrl+＋ / Ctrl+− / Ctrl+0"], "keys.zoomd": ["拡大 / 縮小 / 幅に合わせる（Ctrl＋ホイール、スマホは2本指でも）", "Zoom in / out / fit width (Ctrl+wheel, or pinch on a phone)"],
-  "keys.page": ["← → / PageUp PageDown", "← → / PageUp PageDown"], "keys.pagemove": ["ページ移動", "Previous / next page"], "keys.tools": ["1〜9", "1–9"], "keys.toolsw": ["効能の切り替え", "Switch tool"],
+  "keys.page": ["← → / PageUp PageDown / Home End", "← → / PageUp PageDown / Home End"], "keys.pagemove": ["ページ移動", "Previous / next / first / last page"], "keys.tools": ["1〜9", "1–9"], "keys.toolsw": ["効能の切り替え", "Switch tool"],
   pickPdf: ["PDF か PNG / JPG を選んでください", "Choose a PDF or a PNG / JPG"],
   bigFile: ["{name} は {mb}MB あります。ブラウザのメモリが足りずに落ちることがあります。続けますか？", "{name} is {mb}MB. The browser may run out of memory. Continue?"],
   loading: ["{name} を読み込んでいます…", "Loading {name}…"],
@@ -382,7 +402,7 @@ function applyLang() {
   document.documentElement.lang = lang;
   for (const n of document.querySelectorAll("[data-t]")) n.textContent = t(n.dataset.t);
   el.btnLang.textContent = lang === "ja" ? "EN" : "JA";
-  renderNav(); setFileName();
+  renderNav(); setFileName(); applyUI({ rerender: false });
   if (state.pages.length) { render(); } else { renderProps(); }
 }
 
@@ -394,6 +414,8 @@ const TOOLS = [
   { id: "convert", group: "out" }, { id: "compress", group: "out" }, { id: "protect", group: "out" },
 ];
 const DRAW_TOOLS = new Set(["text", "image", "draw", "shape", "redact", "crop"]);
+/* 右パネルが「いまのページ」に依存する効能。スクロールでページが変わったとき、これら以外は描き直さない（編集中の入力を壊さない） */
+const PAGE_TOOLS = new Set(["select", "pages", "rotate", "blank", "crop", "redact", "form"]);
 
 /* ───────────── 状態 ─────────────
    sources: 読み込んだPDF（bytes と pdf.js / pdf-lib のドキュメント）。画像は1枚1ページのPDFに包んで同じ扱い
@@ -408,7 +430,9 @@ const state = {
   selected: null,       // annot id
   scale: 1,
   zoom: "fit",          // "fit"（幅に合わせる）/ "page"（全体）/ 数値（1 = 100%）
-  viewport: null,
+  viewport: null,       // いまのページの viewport（pdf.js）。座標変換に使う
+  views: [],            // 表示単位（ページ列と同じ順）{uid, p, i, box, cv, overlay, page, rotation, base, viewport, scale, key, task}
+  ui: (() => { try { const v = JSON.parse(localStorage.getItem("gp-ui") || ""); return { nav: v.nav !== false, props: v.props !== false }; } catch (_) { return { nav: true, props: true }; } })(),
   baseName: "document",
   fontBytes: null,      // サブセット
   fontFull: null,       // フル（サブセットに無い文字が出たとき）
@@ -448,17 +472,18 @@ function redo() { if (!history.future.length) { status(t("noRedo")); return; } h
 function shortcutHelp() {
   return `<div class="row" style="margin-top:24px"><label>${t("keys.title")}</label>
 <table class="keys"><tr><td>Ctrl+Z / Ctrl+Shift+Z</td><td>${t("keys.undo")}</td></tr><tr><td>Ctrl+S</td><td>${t("keys.save")}</td></tr><tr><td>Ctrl+O</td><td>${t("keys.open")}</td></tr>
-<tr><td>Delete</td><td>${t("keys.del")}</td></tr><tr><td>${t("keys.arrow")}</td><td>${t("keys.move")}</td></tr><tr><td>${t("keys.page")}</td><td>${t("keys.pagemove")}</td></tr><tr><td>${t("keys.zoom")}</td><td>${t("keys.zoomd")}</td></tr><tr><td>${t("keys.tools")}</td><td>${t("keys.toolsw")}</td></tr></table></div>`;
+<tr><td>${t("keys.select")}</td><td>${t("keys.selectd")}</td></tr><tr><td>${t("keys.space")}</td><td>${t("keys.spaced")}</td></tr><tr><td>${t("keys.panels")}</td><td>${t("keys.panelsd")}</td></tr><tr><td>Delete</td><td>${t("keys.del")}</td></tr><tr><td>${t("keys.arrow")}</td><td>${t("keys.move")}</td></tr><tr><td>${t("keys.page")}</td><td>${t("keys.pagemove")}</td></tr><tr><td>${t("keys.zoom")}</td><td>${t("keys.zoomd")}</td></tr><tr><td>${t("keys.tools")}</td><td>${t("keys.toolsw")}</td></tr></table></div>`;
 }
 
 /* ───────────── DOM ─────────────*/
 const $ = (s) => document.querySelector(s);
 const el = {
-  drop: $("#drop"), dropbox: $("#dropbox"), pagewrap: $("#pagewrap"), cv: $("#cv"), overlay: $("#overlay"),
-  props: $("#props"), status: $("#status"), fname: $("#fname"), pagenum: $("#pagenum"), pagesize: $("#pagesize"),
+  drop: $("#drop"), dropbox: $("#dropbox"), pagewrap: $("#pagewrap"),
+  props: $("#props"), status: $("#status"), fname: $("#fname"), pagesize: $("#pagesize"),
   btnSave: $("#btn-save"), btnAdd: $("#btn-add"), btnPrev: $("#btn-prev"), btnNext: $("#btn-next"), btnLang: $("#btn-lang"),
   filePdf: $("#file-pdf"), fileImg: $("#file-img"), stage: $("#stage"), tools: $("#tools"),
-  scroller: $("#scroller"), canvasbox: $("#canvasbox"), zoomSel: $("#zoomsel"), btnZoomIn: $("#btn-zoomin"), btnZoomOut: $("#btn-zoomout"),
+  scroller: $("#scroller"), pages: $("#pages"), pageInput: $("#pageinput"), pageTotal: $("#pagetotal"), zoomSel: $("#zoomsel"), btnZoomIn: $("#btn-zoomin"), btnZoomOut: $("#btn-zoomout"),
+  btnNav: $("#btn-nav"), btnProps: $("#btn-props"),
 };
 
 function status(msg, ms = 2400) {
@@ -501,7 +526,7 @@ async function addFiles(files) {
   if (!added) { if (state.pages.length) history.past.pop(); return; }
   el.drop.hidden = true; el.pagewrap.hidden = false; el.btnSave.hidden = false; el.btnAdd.hidden = false;
   setFileName();
-  if (!state.tool) setTool("text");
+  if (!state.tool) setTool("select");
   if (!unlockedAny) status(t("loaded"));
   await render();
 }
@@ -584,44 +609,117 @@ async function runQpdf(input, args) {
   return out;
 }
 
-/* ───────────── 表示 ─────────────*/
+/* ───────────── 表示 ─────────────
+   全ページを縦に並べて連続スクロールする。表示単位（view）はページ列と同じ順で、uid で追跡する。
+   画面の近く（前後1画面分）にあるページだけ canvas に描き、遠いページは白い枠だけにして解放する（メモリを増やさない） */
 function currentPage() { return state.pages[state.current]; }
 function sourceOf(p) { return state.sources.find((s) => s.id === p.srcId); }
-
+function viewOf(p) { return state.views.find((v) => v.p === p); }
+function curView() { return state.views[state.current]; }
+/* pdf.js のページ取得は毎回 promise。同じページを何度も引くのでソースごとにキャッシュする */
+function pageOf(p) {
+  const src = sourceOf(p);
+  if (!src.pageCache) src.pageCache = new Map();
+  if (!src.pageCache.has(p.index)) src.pageCache.set(p.index, src.pdf.getPage(p.index + 1));
+  return src.pageCache.get(p.index);
+}
+function makeView(uidv) {
+  const box = document.createElement("div"); box.className = "pageview";
+  const cv = document.createElement("canvas"); const overlay = document.createElement("div"); overlay.className = "overlay";
+  box.append(cv, overlay);
+  return { uid: uidv, box, cv, overlay, p: null, i: 0, page: null, rotation: 0, base: null, viewport: null, scale: 1, key: null, task: null };
+}
+let layoutSeq = 0;
+async function render() {
+  if (!state.pages.length) return;
+  const seq = ++layoutSeq;
+  await layout();
+  if (seq !== layoutSeq) return; // すでに次の描き直しが始まっている
+  renderVisible(); renderOverlays(); updatePageInfo(); syncZoomUI(); renderProps();
+}
+async function layout() {
+  const byUid = new Map(state.views.map((v) => [v.uid, v]));
+  const views = [];
+  for (let i = 0; i < state.pages.length; i++) {
+    const p = state.pages[i];
+    const v = byUid.get(p.uid) || makeView(p.uid);
+    v.p = p; v.i = i; v.page = await pageOf(p);
+    v.rotation = (v.page.rotate + p.extraRotation) % 360;
+    v.base = v.page.getViewport({ scale: 1, rotation: v.rotation });
+    views.push(v);
+  }
+  for (const v of state.views) if (!views.includes(v)) { releaseView(v); v.box.remove(); }
+  state.views = views;
+  state.current = clamp(state.current, 0, views.length - 1);
+  const scale = scaleFor(views[state.current].base);
+  for (const v of views) {
+    v.scale = scale; v.viewport = v.page.getViewport({ scale, rotation: v.rotation });
+    v.box.style.width = `${Math.floor(v.viewport.width) + 2}px`; v.box.style.height = `${Math.floor(v.viewport.height) + 2}px`;
+    v.box.dataset.i = v.i;
+    el.pages.appendChild(v.box); // 順に付け直す＝並べ替えもここで反映
+  }
+  state.scale = scale; state.viewport = views[state.current].viewport;
+}
+function renderVisible() {
+  const top = el.scroller.scrollTop, H = el.scroller.clientHeight || 800;
+  for (const v of state.views) {
+    const y = v.box.offsetTop, h = v.box.offsetHeight;
+    if (y < top + 2 * H && y + h > top - H) renderView(v); else releaseView(v);
+  }
+}
 // 同じ canvas に描画が重なると pdf.js が例外を投げる（連打・並べ替え直後の回転など）。
 // 新しい描画が来たら前の描画を取り消し、最後の1回だけを画面に残す
-let renderTask = null;
-let renderSeq = 0;
-async function render() {
-  const p = currentPage(); if (!p) return;
-  const seq = ++renderSeq;
-  if (renderTask) { try { renderTask.cancel(); } catch (_) { /* 取り消し済み */ } renderTask = null; }
-  const src = sourceOf(p);
-  const page = await src.pdf.getPage(p.index + 1);
-  if (seq !== renderSeq) return; // すでに次の描画が始まっている
-  const rotation = (page.rotate + p.extraRotation) % 360;
-  const base = page.getViewport({ scale: 1, rotation });
-  const scale = scaleFor(base);
-  const viewport = page.getViewport({ scale, rotation });
-  state.scale = scale; state.viewport = viewport;
-  const dpr = dprFor(viewport);
-  el.cv.width = Math.floor(viewport.width * dpr); el.cv.height = Math.floor(viewport.height * dpr);
-  el.cv.style.width = `${Math.floor(viewport.width)}px`; el.cv.style.height = `${Math.floor(viewport.height)}px`;
-  const ctx = el.cv.getContext("2d");
+async function renderView(v) {
+  const vp = v.viewport; const dpr = dprFor(vp); const src = sourceOf(v.p);
+  const key = `${v.scale}|${v.rotation}|${v.p.srcId}|${v.p.index}|${src.gen || 0}|${dpr.toFixed(3)}`;
+  if (v.key === key) return;
+  if (v.task) { try { v.task.cancel(); } catch (_) { /* 取り消し済み */ } v.task = null; }
+  v.key = key;
+  v.cv.width = Math.floor(vp.width * dpr); v.cv.height = Math.floor(vp.height * dpr);
+  v.cv.style.width = `${Math.floor(vp.width)}px`; v.cv.style.height = `${Math.floor(vp.height)}px`;
+  const ctx = v.cv.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, viewport.width, viewport.height);
-  const task = page.render({ canvasContext: ctx, viewport });
-  renderTask = task;
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, vp.width, vp.height);
+  const task = v.page.render({ canvasContext: ctx, viewport: vp });
+  v.task = task;
   try { await task.promise; }
-  catch (e) { if (e && e.name === "RenderingCancelledException") return; throw e; }
-  finally { if (renderTask === task) renderTask = null; }
-  if (seq !== renderSeq) return;
-  el.pagenum.textContent = `${state.current + 1} / ${state.pages.length}`;
-  el.pagesize.textContent = `${Math.round(base.width)}×${Math.round(base.height)}pt${rotation ? ` ・${t("rotated", { deg: rotation })}` : ""}`;
+  catch (e) { if (v.key === key) v.key = null; if (!(e && e.name === "RenderingCancelledException")) throw e; }
+  finally { if (v.task === task) v.task = null; }
+}
+function releaseView(v) {
+  if (v.task) { try { v.task.cancel(); } catch (_) { /* 取り消し済み */ } v.task = null; }
+  if (v.cv.width) { v.cv.width = 0; v.cv.height = 0; }
+  v.key = null;
+}
+function updatePageInfo() {
+  const v = curView(); if (!v) return;
+  el.pageInput.value = state.current + 1; el.pageInput.max = state.pages.length; el.pageTotal.textContent = `/ ${state.pages.length}`;
+  el.pagesize.textContent = `${Math.round(v.base.width)}×${Math.round(v.base.height)}pt${v.rotation ? ` ・${t("rotated", { deg: v.rotation })}` : ""}`;
   el.btnPrev.disabled = state.current === 0; el.btnNext.disabled = state.current >= state.pages.length - 1;
-  syncZoomUI();
-  renderOverlay();
-  renderProps();
+}
+/* いまのページを変える。scroll: そのページの頭まで送る。quiet: 右パネルを描き直さない（スクロールで変わったとき） */
+let suppressScroll = false;
+function setCurrent(i, { scroll = false, quiet = false } = {}) {
+  if (!state.views.length) return;
+  i = clamp(i, 0, state.pages.length - 1);
+  const changed = i !== state.current;
+  state.current = i; const v = curView(); state.viewport = v.viewport; state.scale = v.scale;
+  updatePageInfo();
+  if (scroll) { suppressScroll = true; el.scroller.scrollTop = Math.max(0, v.box.offsetTop - 16); renderVisible(); requestAnimationFrame(() => { suppressScroll = false; }); }
+  if (changed) {
+    if (state.cropDraft) { state.cropDraft = null; renderOverlays(); }
+    if (!quiet || PAGE_TOOLS.has(state.tool)) renderProps();
+  }
+}
+/* 画面にいちばん大きく見えているページ */
+function mostVisibleView() {
+  const top = el.scroller.scrollTop, bottom = top + el.scroller.clientHeight; let best = -1, bestA = -1;
+  for (const v of state.views) {
+    const y = v.box.offsetTop, h = v.box.offsetHeight;
+    const a = Math.min(bottom, y + h) - Math.max(top, y);
+    if (a > bestA) { bestA = a; best = v.i; }
+  }
+  return best;
 }
 
 /* ───────────── 拡大・縮小 ─────────────
@@ -666,14 +764,20 @@ function syncZoomUI() {
 }
 /* 倍率を変える。anchor（表示座標）を渡すと、その点が画面上の同じ位置に留まるようスクロールを合わせる */
 async function setZoom(z, anchor) {
-  const before = anchor ? { s: state.scale, cx: anchor.x, cy: anchor.y,
-    dx: el.scroller.scrollLeft + anchor.x - el.canvasbox.offsetLeft, dy: el.scroller.scrollTop + anchor.y - el.canvasbox.offsetTop } : null;
+  let before = null;
+  if (anchor && state.views.length) {
+    const r = el.scroller.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + anchor.x, r.top + anchor.y);
+    const box = (hit && hit.closest && hit.closest(".pageview")) || curView().box;
+    before = { s: state.scale, box, cx: anchor.x, cy: anchor.y, dx: el.scroller.scrollLeft + anchor.x - box.offsetLeft, dy: el.scroller.scrollTop + anchor.y - box.offsetTop };
+  }
   state.zoom = typeof z === "number" ? clamp(z, ZOOM_MIN, ZOOM_MAX) : z;
   await render();
-  if (before) {
+  if (before && before.box.isConnected) {
     const k = state.scale / before.s;
-    el.scroller.scrollLeft = el.canvasbox.offsetLeft + before.dx * k - before.cx;
-    el.scroller.scrollTop = el.canvasbox.offsetTop + before.dy * k - before.cy;
+    el.scroller.scrollLeft = before.box.offsetLeft + before.dx * k - before.cx;
+    el.scroller.scrollTop = before.box.offsetTop + before.dy * k - before.cy;
+    renderVisible();
   }
 }
 function zoomStep(dir, anchor) {
@@ -718,16 +822,17 @@ function centeredAnchor(box, w, h, deg) {
   return [cx - (w / 2) * bx - (h / 2) * ux, cy - (w / 2) * by - (h / 2) * uy];
 }
 
-/* 注釈 → 画面。anchor（PDF空間・表示上の左下）を viewport で画面座標へ */
-function renderOverlay() {
-  const p = currentPage(); const vp = state.viewport; if (!p || !vp) return;
-  const O = el.overlay; O.innerHTML = "";
-  O.className = (DRAW_TOOLS.has(state.tool) ? "cross" : "") + (state.tool === "shape" ? " shape-mode" : "");
-  const k = state.scale;
+/* 注釈 → 画面。anchor（PDF空間・表示上の左下）を viewport で画面座標へ。view（ページ）ごとに描く */
+function renderOverlays() { for (const v of state.views) renderOverlayFor(v); }
+function renderOverlay() { renderOverlays(); }
+function renderOverlayFor(v) {
+  const p = v.p; const vp = v.viewport; if (!p || !vp) return;
+  const O = v.overlay; O.innerHTML = "";
+  const k = v.scale;
   for (const a of p.annots) {
     let d;
     if (a.type === "ink" || (a.type === "shape" && (a.kind === "line" || a.kind === "arrow"))) {
-      d = renderStrokeAnnot(a, vp);
+      d = renderStrokeAnnot(a, vp, k);
     } else {
       if (a.type === "text") measureText(a);
       const [vx, vy] = vp.convertToViewportPoint(a.x, a.y); // 表示上の左下
@@ -749,39 +854,39 @@ function renderOverlay() {
   }
   // トリミング（適用済み・選択中）
   if (p.crop) { const b = displayBox(vp, p); const d = document.createElement("div"); d.className = "prev crop"; d.style.left = `${b.x}px`; d.style.top = `${b.y}px`; d.style.width = `${b.w}px`; d.style.height = `${b.h}px`; O.appendChild(d); }
-  if (state.tool === "crop" && state.cropDraft) { const b = displayBox(vp, { crop: state.cropDraft }); const d = document.createElement("div"); d.className = "prev cropdraft"; d.style.left = `${b.x}px`; d.style.top = `${b.y}px`; d.style.width = `${b.w}px`; d.style.height = `${b.h}px`; O.appendChild(d); }
+  if (state.tool === "crop" && state.cropDraft && v.i === state.current) { const b = displayBox(vp, { crop: state.cropDraft }); const d = document.createElement("div"); d.className = "prev cropdraft"; d.style.left = `${b.x}px`; d.style.top = `${b.y}px`; d.style.width = `${b.w}px`; d.style.height = `${b.h}px`; O.appendChild(d); }
   // 透かし・ページ番号のプレビュー
   const box = displayBox(vp, p);
   const wm = state.watermark;
   if (wm.enabled && (wm.kind === "text" ? wm.text : wm.image)) {
     const d = document.createElement("div"); d.className = "prev wm"; d.style.opacity = wm.opacity; d.style.transformOrigin = "0 100%"; d.style.transform = `rotate(${-wm.angle}deg)`;
     let w, h;
-    if (wm.kind === "text") { const s = wm.size * k; w = measureWidth(wm.text, s); h = s * 0.72; d.textContent = wm.text; d.style.fontSize = `${s}px`; d.style.color = COLOR_CSS[wm.color]; d.style.fontFamily = cssFontFor(wm.text); d.style.height = `${h}px`; d.style.lineHeight = `${s * 0.95}px`; }
+    if (wm.kind === "text") { const sz = wm.size * k; w = measureWidth(wm.text, sz); h = sz * 0.72; d.textContent = wm.text; d.style.fontSize = `${sz}px`; d.style.color = COLOR_CSS[wm.color]; d.style.fontFamily = cssFontFor(wm.text); d.style.height = `${h}px`; d.style.lineHeight = `${sz * 0.95}px`; }
     else { w = box.w * wm.scale; h = w * wm.image.height / wm.image.width; const img = document.createElement("img"); img.src = wm.image.dataUrl; img.alt = ""; img.style.width = `${w}px`; img.style.height = `${h}px`; img.style.display = "block"; d.appendChild(img); }
     const [bx, by] = centeredAnchor(box, w, h, wm.angle);
     d.style.left = `${bx}px`; d.style.top = `${by - h}px`; d.style.width = `${w}px`;
     O.appendChild(d);
   }
   if (state.pagenum.enabled) {
-    const s = state.pagenum.size * k; const text = pageNumberText(state.current); const tw = measureWidth(text, s);
-    const [x, y] = pageNumberPlace(box, tw, s, k);
-    const d = document.createElement("div"); d.className = "prev pn"; d.textContent = text; d.style.fontSize = `${s}px`; d.style.fontFamily = cssFontFor(text); d.style.color = "#000";
-    d.style.left = `${x}px`; d.style.top = `${y - s * 0.78}px`; d.style.height = `${s}px`; d.style.lineHeight = `${s}px`;
+    const sz = state.pagenum.size * k; const text = pageNumberText(v.i); const tw = measureWidth(text, sz);
+    const [x, y] = pageNumberPlace(box, tw, sz, k);
+    const d = document.createElement("div"); d.className = "prev pn"; d.textContent = text; d.style.fontSize = `${sz}px`; d.style.fontFamily = cssFontFor(text); d.style.color = "#000";
+    d.style.left = `${x}px`; d.style.top = `${y - sz * 0.78}px`; d.style.height = `${sz}px`; d.style.lineHeight = `${sz}px`;
     O.appendChild(d);
   }
 }
 /* 手書き・直線・矢印は SVG で。表示座標で bbox を切り、その中に線を描く */
-function renderStrokeAnnot(a, vp) {
+function renderStrokeAnnot(a, vp, k) {
   const pts = (a.type === "ink" ? a.pts : [[a.x1, a.y1], [a.x2, a.y2]]).map(([x, y]) => vp.convertToViewportPoint(x, y));
   const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
   const pad = 8, x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad, w = Math.max(...xs) - Math.min(...xs) + pad * 2, h = Math.max(...ys) - Math.min(...ys) + pad * 2;
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("class", `annot ${a.type}`); svg.setAttribute("viewBox", `${x0} ${y0} ${w} ${h}`);
   svg.style.left = `${x0}px`; svg.style.top = `${y0}px`; svg.style.width = `${w}px`; svg.style.height = `${h}px`;
-  const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ") + (a.type === "shape" && a.kind === "arrow" ? arrowHeadPath(pts[0], pts[1], Math.max(8, a.width * 4) * state.scale) : "");
+  const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ") + (a.type === "shape" && a.kind === "arrow" ? arrowHeadPath(pts[0], pts[1], Math.max(8, a.width * 4) * k) : "");
   for (const cls of ["vis", "hit"]) {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path"); path.setAttribute("d", d); path.setAttribute("class", cls);
-    if (cls === "vis") { path.setAttribute("stroke", COLOR_CSS[a.color]); path.setAttribute("stroke-width", Math.max(1, a.width * state.scale)); }
+    if (cls === "vis") { path.setAttribute("stroke", COLOR_CSS[a.color]); path.setAttribute("stroke-width", Math.max(1, a.width * k)); }
     svg.appendChild(path);
   }
   return svg;
@@ -795,6 +900,10 @@ function arrowHeadPath([x1, y1], [x2, y2], len) {
 /* ───────────── 効能の切り替え・右パネル ─────────────*/
 function renderNav() {
   el.tools.innerHTML = "";
+  const selBtn = document.createElement("button"); selBtn.dataset.tool = "select"; selBtn.className = "sel"; selBtn.setAttribute("aria-pressed", String(state.tool === "select"));
+  selBtn.innerHTML = `<span class="no">V</span><span>${t("tool.select")}<span class="sub">${t("tool.select.sub")}</span></span>`;
+  selBtn.addEventListener("click", () => { if (state.pages.length) setTool("select"); else status(t("loadFirst")); });
+  el.tools.appendChild(selBtn);
   let g = null;
   TOOLS.forEach((tl, i) => {
     if (tl.group !== g) { g = tl.group; const h = document.createElement("div"); h.className = "grp"; h.textContent = t("group." + g); el.tools.appendChild(h); }
@@ -805,9 +914,40 @@ function renderNav() {
   });
 }
 function setTool(tl) {
-  state.tool = tl; state.selected = null;
+  state.tool = tl; state.selected = null; state.cropDraft = null;
   for (const b of el.tools.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.tool === tl));
-  renderOverlay(); renderProps();
+  syncCursor();
+  renderOverlays(); renderProps();
+}
+function syncCursor() {
+  el.pages.className = (DRAW_TOOLS.has(state.tool) ? "cross" : state.tool === "select" || spaceDown ? "hand" : "") + (state.tool === "shape" ? " shape-mode" : "");
+}
+/* 選択中の注釈（どのページにあってもよい） */
+function selectedAnnot() {
+  if (state.selected == null) return null;
+  for (const p of state.pages) { const a = p.annots.find((x) => x.id === state.selected); if (a) return a; }
+  return null;
+}
+function pageOfAnnot(id) { return state.pages.find((p) => p.annots.some((a) => a.id === id)); }
+/* 選択中の注釈の設定欄（種類ごと）。選択・移動の効能で使う */
+function annotPanel(a) {
+  const del = `<div class="row btns"><button id="p-del">${t("del")}</button></div>`;
+  if (a.type === "text") return `<div class="row"><label>${t("content")}</label><textarea id="p-text">${escapeHtml(a.text)}</textarea></div>
+      <div class="row two"><div><label>${t("size")}</label><input id="p-size" type="number" min="6" max="96" value="${a.size}"></div><div><label>${t("color")}</label>${colorSelect("p-color", a.color)}</div></div>${del}`;
+  if (a.type === "ink" || (a.type === "shape" && a.kind !== "highlight" && a.kind !== "white"))
+    return `${a.type === "shape" ? `<div class="row"><label>${t("kind")}</label><input type="text" value="${t("k." + a.kind)}" disabled></div>` : ""}
+      <div class="row two"><div><label>${t("color")}</label>${colorSelect("p-color", a.color)}</div><div><label>${t("width")}</label><input id="p-width" type="number" min="1" max="20" value="${a.width}"></div></div>${del}`;
+  if (a.type === "shape") return `<div class="row"><label>${t("kind")}</label><input type="text" value="${t("k." + a.kind)}" disabled></div>${del}`;
+  return del;
+}
+function bindAnnotPanel(a) {
+  if (!a) return;
+  bind("#p-text", "focus", () => pushHistory());
+  bind("#p-text", "input", (e) => { a.text = e.target.value; measureText(a); renderOverlay(); });
+  bind("#p-size", "change", (e) => { pushHistory(); a.size = clamp(+e.target.value || 12, 6, 96); measureText(a); renderOverlay(); });
+  bind("#p-color", "change", (e) => { pushHistory(); a.color = e.target.value; renderOverlay(); });
+  bind("#p-width", "change", (e) => { pushHistory(); a.width = clamp(+e.target.value || 2, 1, 20); renderOverlay(); });
+  bind("#p-del", "click", () => removeAnnot(a.id));
 }
 const toolNo = (id) => String(TOOLS.findIndex((x) => x.id === id) + 1).padStart(2, "0");
 const opt = (v, label, cur) => `<option value="${v}"${String(v) === String(cur) ? " selected" : ""}>${label}</option>`;
@@ -819,11 +959,18 @@ function renderProps() {
   const p = currentPage();
   const P = el.props;
   if (!p) { P.innerHTML = `<h2>${t("help.title")}</h2><p>${t("help.body")}</p>${shortcutHelp()}`; return; }
-  const sel = p.annots.find((a) => a.id === state.selected);
+  const sel = selectedAnnot();
   const delBtn = sel ? `<div class="row btns"><button id="p-del">${t("del")}</button></div>` : "";
   const T = state.tool;
   const head = (id) => `<h2>${toolNo(id)} ${t("tool." + id)}</h2>`;
 
+  if (T === "select") {
+    P.innerHTML = `<h2>${t("tool.select")}</h2><p class="note">${t("select.note")}</p>
+      ${sel ? annotPanel(sel) : `<p class="note mono">${t("none")}</p>`}
+      <h3>${t("thumbsTitle")}</h3><div class="row"><div id="thumbs"></div></div>`;
+    bindAnnotPanel(sel); renderThumbs(false);
+    return;
+  }
   if (T === "text") {
     P.innerHTML = `${head(T)}<p class="note">${t("text.note")}</p>
       ${sel && sel.type === "text" ? `
@@ -978,10 +1125,10 @@ function renderProps() {
     bind("#p-go", "click", () => { if (!e.user && !e.owner) { status(t("protNeed")); return; } e.enabled = true; $("#p-on").checked = true; exportPdf({ suffix: "_protected" }); });
     bind("#p-unlock", "click", () => exportPdf({ suffix: "_unlocked", encrypt: false }));
   }
-  if (sel) bind("#p-del", "click", () => removeAnnot(sel.id));
+  if (sel && T !== "select") bind("#p-del", "click", () => removeAnnot(sel.id));
 }
 
-function renderThumbs() {
+function renderThumbs(withOps = true) {
   const box = $("#thumbs"); if (!box) return;
   box.innerHTML = "";
   state.pages.forEach((p, i) => {
@@ -990,19 +1137,19 @@ function renderThumbs() {
     const meta = document.createElement("div"); meta.className = "meta";
     const src = sourceOf(p);
     meta.innerHTML = `<b>${i + 1}</b>${escapeHtml(src.blank ? t("blankName") : src.name)} p.${p.index + 1}${p.annots.length ? ` ・${t("annotsN", { n: p.annots.length })}` : ""}
-      <div class="ops"><button data-op="up"${i === 0 ? " disabled" : ""}>↑</button><button data-op="down"${i === state.pages.length - 1 ? " disabled" : ""}>↓</button><button data-op="del">×</button></div>`;
+      ${withOps ? `<div class="ops"><button data-op="up"${i === 0 ? " disabled" : ""}>↑</button><button data-op="down"${i === state.pages.length - 1 ? " disabled" : ""}>↓</button><button data-op="del">×</button></div>` : ""}`;
     d.appendChild(meta);
     d.addEventListener("click", (e) => {
       const op = e.target.dataset && e.target.dataset.op;
       if (op === "up") movePage(i, i - 1); else if (op === "down") movePage(i, i + 1); else if (op === "del") deletePage(i);
-      else { state.current = i; render(); }
+      else setCurrent(i, { scroll: true });
     });
     box.appendChild(d);
     drawThumb(c, p);
   });
 }
 async function drawThumb(c, p) {
-  const src = sourceOf(p); const page = await src.pdf.getPage(p.index + 1);
+  const page = await pageOf(p);
   const rotation = (page.rotate + p.extraRotation) % 360;
   const vp = page.getViewport({ scale: 64 / page.getViewport({ scale: 1, rotation }).width, rotation });
   c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
@@ -1043,7 +1190,7 @@ async function addBlankPage(paper, where) {
   const cur = currentPage();
   let size;
   if (paper === "a4") size = A4; else if (paper === "a4l") size = [A4[1], A4[0]]; else if (paper === "letter") size = LETTER;
-  else { const pg = await sourceOf(cur).pdf.getPage(cur.index + 1); const v = pg.getViewport({ scale: 1, rotation: (pg.rotate + cur.extraRotation) % 360 }); size = [v.width, v.height]; }
+  else { const pg = await pageOf(cur); const v = pg.getViewport({ scale: 1, rotation: (pg.rotate + cur.extraRotation) % 360 }); size = [v.width, v.height]; }
   size = size.map((v) => Math.round(v * 100) / 100);
   const key = `${size[0]}x${size[1]}`;
   let src = state.sources.find((s) => s.blank === key);
@@ -1129,7 +1276,7 @@ async function applyForm(src) {
     form.flatten({ updateFieldAppearances: false });
     const out = (await doc.save()).buffer;
     if (!src.original) src.original = src.bytes;
-    src.bytes = out; src.lib = null; src.pdf = await pdfjsLib.getDocument({ data: out.slice(0), isEvalSupported: false }).promise; src.formDraft = null;
+    src.bytes = out; src.lib = null; src.pdf = await pdfjsLib.getDocument({ data: out.slice(0), isEvalSupported: false }).promise; src.formDraft = null; src.pageCache = null; src.gen = (src.gen || 0) + 1;
     status(t("form.done"));
     render();
   } catch (e) { status(t("saveFail", { err: e && e.message ? e.message : e }), 8000); }
@@ -1137,7 +1284,7 @@ async function applyForm(src) {
 async function revertForm(src) {
   if (!src.original) return;
   src.bytes = src.original; src.original = null; src.lib = null; src.formDraft = null;
-  src.pdf = await pdfjsLib.getDocument({ data: src.bytes.slice(0), isEvalSupported: false }).promise;
+  src.pdf = await pdfjsLib.getDocument({ data: src.bytes.slice(0), isEvalSupported: false }).promise; src.pageCache = null; src.gen = (src.gen || 0) + 1;
   status(t("form.reverted")); render();
 }
 async function renderFileInfo() {
@@ -1214,7 +1361,7 @@ function addInkAnnot(ptsV) {
   p.annots.push(a); state.selected = a.id; renderOverlay(); renderProps();
 }
 function removeAnnot(id) {
-  const p = currentPage(); pushHistory(); p.annots = p.annots.filter((a) => a.id !== id);
+  const p = pageOfAnnot(id); if (!p) return; pushHistory(); p.annots = p.annots.filter((a) => a.id !== id);
   if (state.selected === id) state.selected = null;
   renderOverlay(); renderProps();
 }
@@ -1225,25 +1372,38 @@ function translateAnnot(a, base, dx, dy) {
   else { a.x = base.x + dx; a.y = base.y + dy; }
 }
 
-// ドラッグ移動・リサイズ・描画（ポインタイベント＝マウスもタッチも同じ）
-let drag = null;
-function bandEl() { let b = $("#band"); if (!b) { b = document.createElement("div"); b.id = "band"; el.overlay.appendChild(b); } return b; }
-el.overlay.addEventListener("pointerdown", (e) => {
-  const p = currentPage(); if (!p) return;
-  const target = e.target.closest(".annot");
-  const rect = el.overlay.getBoundingClientRect();
+// ドラッグ移動・リサイズ・描画・掴んで動かす（ポインタイベント＝マウスもタッチも同じ）。
+// ページが複数あるので、スクロール面で受けて「どのページの上か」を毎回引く
+let drag = null, spaceDown = false;
+function viewFromEvent(e) { const box = e.target && e.target.closest ? e.target.closest(".pageview") : null; return box ? state.views[+box.dataset.i] : null; }
+function startPan(e, deselect = false) {
+  drag = { mode: "pan", sx: e.clientX, sy: e.clientY, sl: el.scroller.scrollLeft, st: el.scroller.scrollTop, moved: false, deselect };
+  el.scroller.classList.add("panning");
+  try { el.scroller.setPointerCapture(e.pointerId); } catch (_) { /* 取れなくても動く */ }
+  e.preventDefault();
+}
+el.scroller.addEventListener("pointerdown", (e) => {
+  if (!state.pages.length || (e.pointerType === "touch" && touches.size >= 2)) return;
+  if (e.button === 1 || (spaceDown && e.button === 0)) { startPan(e); return; }
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  const v = viewFromEvent(e);
+  if (!v) { if (state.tool === "select") startPan(e, true); return; }
+  if (v.i !== state.current) setCurrent(v.i, { quiet: true });
+  const rect = v.overlay.getBoundingClientRect();
   const vx = e.clientX - rect.left, vy = e.clientY - rect.top;
+  const target = e.target.closest(".annot");
   if (target) {
-    const a = p.annots.find((x) => x.id === +target.dataset.id); if (!a) return;
-    state.selected = a.id; renderOverlay(); renderProps();
+    const a = v.p.annots.find((x) => x.id === +target.dataset.id); if (!a) return;
+    state.selected = a.id; renderOverlays(); renderProps();
     const isHandle = e.target.classList.contains("handle");
     pushHistory();
-    drag = { mode: isHandle ? "resize" : "move", a, base: { ...a }, sx: vx, sy: vy, moved: false };
-    el.overlay.setPointerCapture(e.pointerId);
+    drag = { mode: isHandle ? "resize" : "move", v, a, base: { ...a }, sx: vx, sy: vy, moved: false };
+    v.overlay.setPointerCapture(e.pointerId);
     e.preventDefault();
     return;
   }
   const T = state.tool;
+  if (T === "select") { startPan(e, true); return; }
   if (T === "text") { addTextAt(vx, vy); return; }
   if (T === "image") {
     if (state.pendingImage) { addImageAt(vx, vy, state.pendingImage); state.pendingImage = null; renderProps(); }
@@ -1251,22 +1411,28 @@ el.overlay.addEventListener("pointerdown", (e) => {
     return;
   }
   if (T === "draw") {
-    drag = { mode: "ink", pts: [[vx, vy]] };
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.id = "inktemp";
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path"); path.setAttribute("fill", "none"); path.setAttribute("stroke", COLOR_CSS[state.draw.color]); path.setAttribute("stroke-width", Math.max(1, state.draw.width * state.scale)); path.setAttribute("stroke-linecap", "round"); path.setAttribute("stroke-linejoin", "round");
-    svg.appendChild(path); el.overlay.appendChild(svg); drag.path = path;
-    el.overlay.setPointerCapture(e.pointerId); e.preventDefault(); return;
+    drag = { mode: "ink", v, pts: [[vx, vy]] };
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("class", "inktemp");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path"); path.setAttribute("fill", "none"); path.setAttribute("stroke", COLOR_CSS[state.draw.color]); path.setAttribute("stroke-width", Math.max(1, state.draw.width * v.scale)); path.setAttribute("stroke-linecap", "round"); path.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(path); v.overlay.appendChild(svg); drag.svg = svg; drag.path = path;
+    v.overlay.setPointerCapture(e.pointerId); e.preventDefault(); return;
   }
   if (T === "shape" || T === "redact" || T === "crop") {
-    drag = { mode: "band", sx: vx, sy: vy, x: vx, y: vy };
-    const b = bandEl(); b.style.left = `${vx}px`; b.style.top = `${vy}px`; b.style.width = "0px"; b.style.height = "0px";
-    el.overlay.setPointerCapture(e.pointerId); e.preventDefault(); return;
+    const b = document.createElement("div"); b.className = "band"; b.style.left = `${vx}px`; b.style.top = `${vy}px`; b.style.width = "0px"; b.style.height = "0px"; v.overlay.appendChild(b);
+    drag = { mode: "band", v, band: b, sx: vx, sy: vy, x: vx, y: vy };
+    v.overlay.setPointerCapture(e.pointerId); e.preventDefault(); return;
   }
-  state.selected = null; renderOverlay(); renderProps();
+  if (state.selected != null) { state.selected = null; renderOverlays(); renderProps(); }
 });
-el.overlay.addEventListener("pointermove", (e) => {
+el.scroller.addEventListener("pointermove", (e) => {
   if (!drag) return;
-  const rect = el.overlay.getBoundingClientRect();
+  if (drag.mode === "pan") {
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    el.scroller.scrollLeft = drag.sl - dx; el.scroller.scrollTop = drag.st - dy;
+    return;
+  }
+  const v = drag.v; const rect = v.overlay.getBoundingClientRect();
   const vx = clamp(e.clientX - rect.left, 0, rect.width), vy = clamp(e.clientY - rect.top, 0, rect.height);
   if (drag.mode === "ink") {
     const last = drag.pts[drag.pts.length - 1];
@@ -1276,48 +1442,53 @@ el.overlay.addEventListener("pointermove", (e) => {
     return;
   }
   if (drag.mode === "band") {
-    drag.x = vx; drag.y = vy; const b = bandEl();
+    drag.x = vx; drag.y = vy; const b = drag.band;
     b.style.left = `${Math.min(drag.sx, vx)}px`; b.style.top = `${Math.min(drag.sy, vy)}px`; b.style.width = `${Math.abs(vx - drag.sx)}px`; b.style.height = `${Math.abs(vy - drag.sy)}px`;
     return;
   }
-  const a = drag.a; drag.moved = true;
+  const a = drag.a; drag.moved = true; const vp = v.viewport, k = v.scale;
   if (drag.mode === "resize") {
-    const dw = (vx - drag.sx) / state.scale, dh = (vy - drag.sy) / state.scale;
+    const dw = (vx - drag.sx) / k, dh = (vy - drag.sy) / k;
     a.w = Math.max(8, drag.base.w + dw);
     a.h = a.type === "image" ? a.w * a.ratio : Math.max(4, drag.base.h + dh);
-    if (a.type !== "image") { /* 下辺が下がる分、左下アンカーを表示上の下方向へ */ const [ox, oy] = state.viewport.convertToPdfPoint(0, 0); const [nx, ny] = state.viewport.convertToPdfPoint(0, (a.h - drag.base.h) * state.scale); a.x = drag.base.x + (nx - ox); a.y = drag.base.y + (ny - oy); }
-    else { const [ox, oy] = state.viewport.convertToPdfPoint(0, 0); const [nx, ny] = state.viewport.convertToPdfPoint(0, (a.h - drag.base.h) * state.scale); a.x = drag.base.x + (nx - ox); a.y = drag.base.y + (ny - oy); }
+    // 下辺が下がる分、左下アンカーを表示上の下方向へ
+    const [ox, oy] = vp.convertToPdfPoint(0, 0); const [nx, ny] = vp.convertToPdfPoint(0, (a.h - drag.base.h) * k); a.x = drag.base.x + (nx - ox); a.y = drag.base.y + (ny - oy);
   } else {
     // 表示上の移動量を PDF 空間へ（原点の差分で変換）
-    const [ox, oy] = state.viewport.convertToPdfPoint(drag.sx, drag.sy);
-    const [nx, ny] = state.viewport.convertToPdfPoint(vx, vy);
+    const [ox, oy] = vp.convertToPdfPoint(drag.sx, drag.sy);
+    const [nx, ny] = vp.convertToPdfPoint(vx, vy);
     translateAnnot(a, drag.base, nx - ox, ny - oy);
   }
-  renderOverlay();
+  renderOverlayFor(v);
 });
 function endDrag(e) {
   if (!drag) return;
   const d = drag; drag = null;
-  if (d.mode === "ink") { const tmp = $("#inktemp"); if (tmp) tmp.remove(); if (d.pts.length >= 2) addInkAnnot(d.pts); return; }
+  if (d.mode === "pan") {
+    el.scroller.classList.remove("panning");
+    if (!d.moved && d.deselect && state.selected != null) { state.selected = null; renderOverlays(); renderProps(); }
+    return;
+  }
+  if (d.mode === "ink") { d.svg.remove(); if (d.pts.length >= 2) addInkAnnot(d.pts); return; }
   if (d.mode === "band") {
-    const b = $("#band"); if (b) b.remove();
+    d.band.remove();
     const x = Math.min(d.sx, d.x), y = Math.min(d.sy, d.y), w = Math.abs(d.x - d.sx), h = Math.abs(d.y - d.sy);
-    if (e.type === "pointercancel" || (w < 4 && h < 4)) { if (state.tool !== "crop") { state.selected = null; renderOverlay(); renderProps(); } return; }
+    if (e.type === "pointercancel" || (w < 4 && h < 4)) { if (state.tool !== "crop") { state.selected = null; renderOverlays(); renderProps(); } return; }
     if (state.tool === "shape" && (state.shape.kind === "line" || state.shape.kind === "arrow")) addLineAnnot(d.sx, d.sy, d.x, d.y);
     else addRectAnnot(x, y, w, h);
     return;
   }
   if (!d.moved) history.past.pop();
 }
-el.overlay.addEventListener("pointerup", endDrag); el.overlay.addEventListener("pointercancel", endDrag);
+el.scroller.addEventListener("pointerup", endDrag); el.scroller.addEventListener("pointercancel", endDrag);
 /* 描きかけ・動かしかけを捨てる（2本指で拡大に切り替わったとき） */
 function cancelDrag() {
   if (!drag) return;
   const d = drag; drag = null;
-  const tmp = $("#inktemp"); if (tmp) tmp.remove();
-  const b = $("#band"); if (b) b.remove();
+  el.scroller.classList.remove("panning");
+  if (d.svg) d.svg.remove(); if (d.band) d.band.remove();
   if ((d.mode === "move" || d.mode === "resize") && history.past.length) restore(history.past.pop());
-  else renderOverlay();
+  else if (d.mode !== "pan") renderOverlays();
 }
 /* ショートカット。文字入力中（input / textarea）はブラウザ標準に任せる */
 document.addEventListener("keydown", (e) => {
@@ -1331,23 +1502,38 @@ document.addEventListener("keydown", (e) => {
   if (typing) return;
   if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
+  if (e.key === "[") { toggleUI("nav"); return; }
+  if (e.key === "]") { toggleUI("props"); return; }
   if (!state.pages.length) return;
-  const sel = currentPage().annots.find((a) => a.id === state.selected);
+  if (e.key === " " && !e.repeat) { spaceDown = true; syncCursor(); e.preventDefault(); return; }
+  const sel = selectedAnnot();
   if (e.key === "Delete" || e.key === "Backspace") { if (sel) { removeAnnot(sel.id); e.preventDefault(); } return; }
-  if (e.key === "Escape") { state.selected = null; state.cropDraft = null; renderOverlay(); renderProps(); return; }
+  if (e.key === "Escape") {
+    if (sel) { state.selected = null; renderOverlays(); renderProps(); }
+    else if (state.cropDraft) { state.cropDraft = null; renderOverlays(); renderProps(); }
+    else if (state.tool !== "select") setTool("select");
+    return;
+  }
+  if (!mod && e.key.toLowerCase() === "v") { setTool("select"); return; }
   if (/^Arrow/.test(e.key) && sel) {
-    // 選択中の注釈を1pt（Shift で10pt）動かす。方向は表示上のものなので PDF 空間へ変換する
-    const step = (e.shiftKey ? 10 : 1) * state.scale;
+    // 選択中の注釈を1pt（Shift で10pt）動かす。方向は表示上のものなので、その注釈のページの viewport で PDF 空間へ変換する
+    const v = viewOf(pageOfAnnot(sel.id)) || curView(); const vp = v.viewport;
+    const step = (e.shiftKey ? 10 : 1) * v.scale;
     const dx = e.key === "ArrowRight" ? step : e.key === "ArrowLeft" ? -step : 0;
     const dy = e.key === "ArrowDown" ? step : e.key === "ArrowUp" ? -step : 0;
-    const [ox, oy] = state.viewport.convertToPdfPoint(0, 0); const [nx, ny] = state.viewport.convertToPdfPoint(dx, dy);
+    const [ox, oy] = vp.convertToPdfPoint(0, 0); const [nx, ny] = vp.convertToPdfPoint(dx, dy);
     if (!e.repeat) pushHistory();
-    translateAnnot(sel, { ...sel, pts: sel.pts }, nx - ox, ny - oy); renderOverlay(); e.preventDefault(); return;
+    translateAnnot(sel, { ...sel, pts: sel.pts }, nx - ox, ny - oy); renderOverlayFor(v); e.preventDefault(); return;
   }
-  if (e.key === "ArrowLeft" || e.key === "PageUp") { el.btnPrev.click(); e.preventDefault(); return; }
-  if (e.key === "ArrowRight" || e.key === "PageDown") { el.btnNext.click(); e.preventDefault(); return; }
+  if (e.key === "ArrowLeft" || e.key === "PageUp") { setCurrent(state.current - 1, { scroll: true }); e.preventDefault(); return; }
+  if (e.key === "ArrowRight" || e.key === "PageDown") { setCurrent(state.current + 1, { scroll: true }); e.preventDefault(); return; }
+  if (e.key === "Home") { setCurrent(0, { scroll: true }); e.preventDefault(); return; }
+  if (e.key === "End") { setCurrent(state.pages.length - 1, { scroll: true }); e.preventDefault(); return; }
+  if (e.key === "ArrowUp" || e.key === "ArrowDown") { el.scroller.scrollTop += e.key === "ArrowDown" ? 64 : -64; e.preventDefault(); return; }
   if (/^[1-9]$/.test(e.key) && !mod && TOOLS[+e.key - 1]) { setTool(TOOLS[+e.key - 1].id); return; }
 });
+document.addEventListener("keyup", (e) => { if (e.key === " " && spaceDown) { spaceDown = false; syncCursor(); } });
+window.addEventListener("blur", () => { if (spaceDown) { spaceDown = false; syncCursor(); } });
 
 /* ───────────── フォント ─────────────*/
 async function loadFont(urls) {
@@ -1402,7 +1588,7 @@ async function buildPdf({ only } = {}) {
   for (let li = 0; li < N; li++) {
     const p = list[li];
     const src = sourceOf(p); const lib = await libOf(src);
-    const pdfjsPage = await src.pdf.getPage(p.index + 1);
+    const pdfjsPage = await pageOf(p);
     const total = ((pdfjsPage.rotate + p.extraRotation) % 360 + 360) % 360;
     const redactions = p.annots.filter((a) => a.type === "redact");
     let page;
@@ -1618,8 +1804,32 @@ el.fileImg.addEventListener("change", async () => {
 });
 
 /* ───────────── UI 配線 ─────────────*/
-el.btnPrev.addEventListener("click", () => { if (state.current > 0) { state.current--; state.selected = null; state.cropDraft = null; render(); } });
-el.btnNext.addEventListener("click", () => { if (state.current < state.pages.length - 1) { state.current++; state.selected = null; state.cropDraft = null; render(); } });
+el.btnPrev.addEventListener("click", () => setCurrent(state.current - 1, { scroll: true }));
+el.btnNext.addEventListener("click", () => setCurrent(state.current + 1, { scroll: true }));
+el.pageInput.addEventListener("change", () => { const n = Math.floor(+el.pageInput.value); if (n >= 1 && n <= state.pages.length) setCurrent(n - 1, { scroll: true }); else updatePageInfo(); });
+el.pageInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); el.pageInput.blur(); } });
+// スクロールでいまのページを追い、近くのページだけ描く
+let scrollRaf = 0;
+el.scroller.addEventListener("scroll", () => {
+  if (scrollRaf) return;
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = 0; if (!state.views.length) return;
+    renderVisible();
+    if (suppressScroll) return;
+    const i = mostVisibleView(); if (i >= 0 && i !== state.current) setCurrent(i, { quiet: true });
+  });
+});
+/* 左右のパネルの開閉。畳むと中央が広がるので幅に合わせ直す */
+function applyUI({ rerender = true } = {}) {
+  el.tools.hidden = !state.ui.nav; el.props.hidden = !state.ui.props;
+  el.btnNav.textContent = state.ui.nav ? "«" : "»"; el.btnNav.title = t(state.ui.nav ? "hideTools" : "showTools"); el.btnNav.setAttribute("aria-pressed", String(state.ui.nav));
+  el.btnProps.textContent = state.ui.props ? "»" : "«"; el.btnProps.title = t(state.ui.props ? "hideProps" : "showProps"); el.btnProps.setAttribute("aria-pressed", String(state.ui.props));
+  try { localStorage.setItem("gp-ui", JSON.stringify(state.ui)); } catch (_) { /* 保存できなくても動く */ }
+  if (rerender && state.pages.length) render();
+}
+function toggleUI(which) { state.ui[which] = !state.ui[which]; applyUI(); }
+el.btnNav.addEventListener("click", () => toggleUI("nav"));
+el.btnProps.addEventListener("click", () => toggleUI("props"));
 el.btnSave.addEventListener("click", () => exportPdf());
 el.btnAdd.addEventListener("click", () => el.filePdf.click());
 el.btnLang.addEventListener("click", () => setLang(lang === "ja" ? "en" : "ja"));
@@ -1673,7 +1883,7 @@ function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&a
 applyLang();
 
 // 動作確認用（ドキュメント化しない）。ファイル操作はすべてこのブラウザの中で完結する
-window.GP = { state, undo, redo, history, addFiles, addSource, setTool, setLang, t, addTextAt, addImageAt, addRectAnnot, addLineAnnot, addInkAnnot, addBlankPage, applyCrop, applyForm, revertForm, rotate, movePage, deletePage,
+window.GP = { state, undo, redo, history, addFiles, addSource, setTool, setLang, setCurrent, toggleUI, t, addTextAt, addImageAt, addRectAnnot, addLineAnnot, addInkAnnot, addBlankPage, applyCrop, applyForm, revertForm, rotate, movePage, deletePage,
   setZoom, zoomStep, buildPdf, exportPdf, exportOptimized, exportCompressed, exportImages, makeZip, runQpdf, render, parseRange, imageToPdf, version: VERSION };
 </script>
 </body>
