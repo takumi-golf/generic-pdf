@@ -24,7 +24,10 @@
 - 月額を払って専用ソフトを入れる
 - 無料のWebサービスに、その書類を渡す
 
-2つ目が気になる人のために作りました。**ジェネリックPDF は `index.html` 1ファイルです。**
+1つ目は、私が払っていたほうです。**Acrobat に年23,760円**（年間契約で月1,980円。月々契約なら月3,300円）。
+2つ目は、どうしても気が進みませんでした。
+
+だから `index.html` を1枚書きました。**ジェネリックPDF はこの1ファイルで全部です。**
 ダウンロードしてダブルクリックすれば動きます。ビルドも、インストールも、アカウントもありません。
 
 ## 「送っていません」は、あなたが確かめられます
@@ -134,6 +137,8 @@ grep -n 'fetch(\|XMLHttpRequest\|FormData\|sendBeacon\|POST' index.html
 ### Editing a PDF should not require uploading it.
 
 Sign it, stamp it, save it — all inside your browser. **One HTML file. 16 tools. Free. No account, no ads.**
+
+I was paying ¥23,760 a year for Acrobat. The alternative was handing my documents to a free web service. Neither appealed, so I wrote one HTML file instead.
 
 [**Use it now →**](https://ilove-ai.net/pdf) &nbsp;·&nbsp; [Download the single file](../../releases)
 
