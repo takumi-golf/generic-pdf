@@ -72,6 +72,9 @@
   header .spacer{ flex:1 0 16px; }
   header a.gh{ font-family:var(--mono); font-size:12px; text-decoration:none; border-bottom:1px solid currentColor; white-space:nowrap; }
   header button.lang{ font-family:var(--mono); font-size:12px; padding:4px 10px; }
+  .hist{ display:inline-flex; gap:4px; flex:none; }
+  .hist button{ padding:4px 10px; font-size:14px; line-height:1.4; }
+  #hist-bar{ display:none; }
   /* 左右のパネルは hidden で畳む。列は auto なので畳むと幅 0 になり、中央が広がる */
   main{ display:grid; grid-template-columns:auto 1fr auto; min-height:0; }
   /* 列は明示する。自動配置だと、左を畳んだときに中央が左の列（auto）へ落ちて広がらない */
@@ -204,7 +207,10 @@
     nav.tools .sub{ display:none; }
     #stage{ grid-column:1; grid-row:2; }
     #sheetbar{ display:flex; grid-column:1; grid-row:3; align-items:center; justify-content:space-between; gap:8px; padding:6px 12px; border-top:var(--line); font-size:13px; }
-    #sheetbar #sheet-title{ font-family:var(--mono); font-size:12px; color:var(--mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #sheetbar #sheet-title{ font-family:var(--mono); font-size:12px; color:var(--mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+    #hist-top{ display:none; }
+    #hist-bar{ display:inline-flex; }
+    #hist-bar button{ padding:4px 12px; }
     #sheetbar button{ padding:4px 12px; font-size:13px; flex:none; }
     aside.props{ grid-column:1; grid-row:4; width:auto; border-left:0; border-top:1px solid var(--faint); max-height:50vh; }
     #props-body{ padding:12px 16px; }
@@ -225,6 +231,7 @@
     #drop p{ font-size:13px; }
     #drop ul{ margin-top:12px; font-size:13px; line-height:1.8; }
     #drop .cant{ font-size:11px; }
+    #status{ left:8px; right:8px; bottom:56px; max-width:none; font-size:11px; }
   }
 </style>
 </head>
@@ -236,6 +243,7 @@
     <a class="gh" href="https://github.com/takumi-golf/generic-pdf" target="_blank" rel="noopener" data-t="source">ソース →</a>
     <span id="fname" class="mono mute"></span>
     <span class="spacer"></span>
+    <span class="hist" id="hist-top" hidden><button class="undo" aria-label="undo">↶</button><button class="redo" aria-label="redo">↷</button></span>
     <button id="btn-add" hidden data-t="add">＋ 追加</button>
     <button id="btn-save" class="primary" hidden data-t="save">保存 ↓</button>
     <button id="btn-lang" class="lang" aria-label="Language">EN</button>
@@ -270,7 +278,7 @@
         <div id="scroller"><div id="pages"></div></div>
       </div>
     </section>
-    <div id="sheetbar"><span id="sheet-title"></span><button id="sheet-toggle"></button></div>
+    <div id="sheetbar"><span class="hist" id="hist-bar"><button class="undo" aria-label="undo">↶</button><button class="redo" aria-label="redo">↷</button></span><span id="sheet-title"></span><button id="sheet-toggle"></button></div>
     <button id="rail-r" class="rail" hidden>«</button>
     <aside class="props" id="props"><button class="fold" id="fold-r">»</button><div id="props-body"></div></aside>
   </main>
@@ -361,6 +369,7 @@ const STR = {
   content: ["内容", "Text"], size: ["サイズ（pt）", "Size (pt)"], color: ["色", "Color"], width: ["太さ（pt）", "Stroke (pt)"], opacity: ["濃さ", "Opacity"], angle: ["角度", "Angle"],
   "c.black": ["黒", "Black"], "c.red": ["赤", "Red"], "c.blue": ["青", "Blue"], "c.gray": ["灰", "Gray"], "c.white": ["白", "White"],
   del: ["× 削除", "× Delete"], none: ["選択中のものはありません", "Nothing selected"], settings: ["設定", "Settings"], editText: ["書き直す", "Edit"],
+  undoBtn: ["戻る（Ctrl+Z）", "Undo (Ctrl+Z)"], redoBtn: ["やり直す（Ctrl+Shift+Z）", "Redo (Ctrl+Shift+Z)"],
   "text.note": ["ページをタップ／クリックすると、その場に入力欄が出ます。置いた文字はタップで書き直し、ドラッグで移動。日本語OK。", "Tap or click the page and type right there. Tap placed text to edit it again, drag to move. Japanese OK."],
   "text.note2": ["既存の文字は書き換えられません（上に重ねます）。Ctrl+Z で戻せます。", "Existing text cannot be edited (you overlay on top). Ctrl+Z undoes."],
   "image.note": ["PNG（透過OK）か JPG を選び、ページ上をクリックして置きます。右下の角で大きさ、ドラッグで移動。", "Choose a PNG (transparency OK) or JPG, then click on the page. Resize from the bottom-right corner, drag to move."],
@@ -497,6 +506,12 @@ function snapshot() {
 function pushHistory() {
   history.past.push(snapshot()); if (history.past.length > history.limit) history.past.shift();
   history.future.length = 0;
+  syncHistoryUI();
+}
+/* 戻る／やり直すボタン（PC はヘッダー、スマホは下のバー）。押せるかどうかを履歴に合わせる */
+function syncHistoryUI() {
+  for (const b of document.querySelectorAll(".hist .undo")) { b.disabled = !history.past.length; b.title = t("undoBtn"); b.setAttribute("aria-label", t("undoBtn")); }
+  for (const b of document.querySelectorAll(".hist .redo")) { b.disabled = !history.future.length; b.title = t("redoBtn"); b.setAttribute("aria-label", t("redoBtn")); }
 }
 function restore(snap) {
   closeEditor();
@@ -505,8 +520,8 @@ function restore(snap) {
   state.selected = null;
   render();
 }
-function undo() { if (!history.past.length) { status(t("noUndo")); return; } history.future.push(snapshot()); restore(history.past.pop()); status(t("undone")); }
-function redo() { if (!history.future.length) { status(t("noRedo")); return; } history.past.push(snapshot()); restore(history.future.pop()); status(t("redone")); }
+function undo() { if (!history.past.length) { status(t("noUndo")); return; } history.future.push(snapshot()); restore(history.past.pop()); status(t("undone")); syncHistoryUI(); }
+function redo() { if (!history.future.length) { status(t("noRedo")); return; } history.past.push(snapshot()); restore(history.future.pop()); status(t("redone")); syncHistoryUI(); }
 
 function shortcutHelp() {
   return `<div class="row keysblock" style="margin-top:24px"><label>${t("keys.title")}</label>
@@ -563,7 +578,7 @@ async function addFiles(files) {
     }
   }
   if (!added) { if (state.pages.length) history.past.pop(); return; }
-  el.drop.hidden = true; el.pagewrap.hidden = false; el.btnSave.hidden = false; el.btnAdd.hidden = false;
+  el.drop.hidden = true; el.pagewrap.hidden = false; el.btnSave.hidden = false; el.btnAdd.hidden = false; $("#hist-top").hidden = false;
   setFileName();
   if (!state.tool) setTool("select");
   if (!unlockedAny) status(t("loaded"));
@@ -864,7 +879,7 @@ function centeredAnchor(box, w, h, deg) {
 }
 
 /* 注釈 → 画面。anchor（PDF空間・表示上の左下）を viewport で画面座標へ。view（ページ）ごとに描く */
-function renderOverlays() { for (const v of state.views) renderOverlayFor(v); }
+function renderOverlays() { for (const v of state.views) renderOverlayFor(v); syncHistoryUI(); }
 function renderOverlay() { renderOverlays(); }
 function renderOverlayFor(v) {
   const p = v.p; const vp = v.viewport; if (!p || !vp) return;
@@ -1974,6 +1989,8 @@ el.railL.addEventListener("click", () => toggleUI("nav"));
 el.railR.addEventListener("click", () => toggleUI("props"));
 el.foldR.addEventListener("click", () => toggleUI("props"));
 el.btnSave.addEventListener("click", () => exportPdf());
+for (const b of document.querySelectorAll(".hist .undo")) b.addEventListener("click", () => { closeEditor(); undo(); });
+for (const b of document.querySelectorAll(".hist .redo")) b.addEventListener("click", () => { closeEditor(); redo(); });
 el.btnAdd.addEventListener("click", () => el.filePdf.click());
 el.btnLang.addEventListener("click", () => setLang(lang === "ja" ? "en" : "ja"));
 el.filePdf.addEventListener("change", () => { addFiles(el.filePdf.files); el.filePdf.value = ""; });
