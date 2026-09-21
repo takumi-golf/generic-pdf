@@ -174,24 +174,38 @@
   #status{ position:fixed; left:16px; bottom:16px; font-family:var(--mono); font-size:12px; background:var(--bg); border:var(--line); padding:8px 12px; display:none; max-width:calc(100% - 32px); z-index:5; }
   #status.show{ display:block; }
 
-  /* ── スマホ ── */
+  /* ── スマホ ──
+     PC の3カラムを縦に積むのではなく、上に効能チップ・中央に紙・下に1行のバー。設定はバーから出すシート */
+  #sheetbar{ display:none; }
   @media (max-width:768px){
-    main{ grid-template-columns:1fr; grid-template-rows:auto 1fr auto; }
-    nav.tools{ grid-column:1; grid-row:1; width:auto; flex-direction:row; border-right:0; border-bottom:var(--line); overflow-x:auto; overflow-y:hidden; }
-    #stage{ grid-column:1; grid-row:2; }
-    aside.props{ grid-column:1; grid-row:3; }
+    main{ grid-template-columns:1fr; grid-template-rows:auto 1fr auto auto; }
+    nav.tools{ grid-column:1; grid-row:1; width:auto; flex-direction:row; border-right:0; border-bottom:var(--line); overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    nav.tools::-webkit-scrollbar{ display:none; }
     nav.tools .grp{ display:none; }
-    nav.tools button{ border-bottom:0; border-right:var(--line); white-space:nowrap; padding:12px; }
+    nav.tools button{ border-bottom:0; border-right:var(--line); white-space:nowrap; padding:9px 12px; font-size:14px; gap:6px; }
+    nav.tools button .no{ width:auto; font-size:11px; }
     nav.tools .sub{ display:none; }
-    aside.props{ width:auto; border-left:0; border-top:var(--line); max-height:42vh; padding:16px; }
+    #stage{ grid-column:1; grid-row:2; }
+    #sheetbar{ display:flex; grid-column:1; grid-row:3; align-items:center; justify-content:space-between; gap:8px; padding:6px 12px; border-top:var(--line); font-size:13px; }
+    #sheetbar #sheet-title{ font-family:var(--mono); font-size:12px; color:var(--mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #sheetbar button{ padding:4px 12px; font-size:13px; flex:none; }
+    aside.props{ grid-column:1; grid-row:4; width:auto; border-left:0; border-top:1px solid var(--faint); max-height:50vh; padding:12px 16px; }
+    aside.props .keysblock{ display:none; }
+    aside.props .row{ margin-bottom:12px; }
     #pages{ padding:8px 8px 30vh; }
     .pageview{ margin-bottom:8px; }
     #pageinfo{ gap:8px; padding:6px 8px; }
     #pageinfo #pagesize{ display:none; }
     header{ gap:8px; height:48px; padding:0 8px; }
     header h1{ font-size:14px; white-space:nowrap; }
-    header .ver, header a.gh, header #fname{ display:none; }
+    header .ver, header a.gh, header #fname, header .tgl{ display:none; }
     header button{ padding:6px 10px; font-size:14px; white-space:nowrap; }
+    #drop{ padding:12px; gap:12px; justify-content:flex-start; }
+    #drop .box{ padding:28px 16px; }
+    #drop h2{ font-size:18px; margin-bottom:8px; }
+    #drop p{ font-size:13px; }
+    #drop ul{ margin-top:12px; font-size:13px; line-height:1.8; }
+    #drop .cant{ font-size:11px; }
   }
 </style>
 </head>
@@ -215,7 +229,7 @@
       <div id="drop">
         <div class="box" id="dropbox" role="button" tabindex="0">
           <h2 data-t="drop.title">ここにPDFをドロップ</h2>
-          <p class="mono" data-t="drop.or">または クリックしてファイルを選ぶ（PDF・PNG・JPG）</p>
+          <p class="mono" data-t="drop.or">または タップして選ぶ（PDF・PNG・JPG）</p>
           <ul>
             <li data-t="drop.p1">アップロードしません</li>
             <li data-t="drop.p2">会員登録もカード登録もありません</li>
@@ -238,6 +252,7 @@
         <div id="scroller"><div id="pages"></div></div>
       </div>
     </section>
+    <div id="sheetbar"><span id="sheet-title"></span><button id="sheet-toggle"></button></div>
     <aside class="props" id="props"></aside>
   </main>
 </div>
@@ -275,14 +290,14 @@ const A4 = [595.28, 841.89], LETTER = [612, 792];
    画面の文言は全部ここ。[日本語, English]。保存するのは localStorage の "gp-lang" だけ */
 const STR = {
   source: ["ソース →", "Source →"], add: ["＋ 追加", "+ Add"], save: ["保存 ↓", "Save ↓"],
-  "drop.title": ["ここにPDFをドロップ", "Drop a PDF here"], "drop.or": ["または クリックしてファイルを選ぶ（PDF・PNG・JPG）", "or click to choose files (PDF, PNG, JPG)"],
+  "drop.title": ["ここにPDFをドロップ", "Drop a PDF here"], "drop.or": ["または タップして選ぶ（PDF・PNG・JPG）", "or tap to choose files (PDF, PNG, JPG)"],
   "drop.p1": ["アップロードしません", "Nothing is uploaded"], "drop.p2": ["会員登録もカード登録もありません", "No account, no credit card"], "drop.p3": ["閉じれば全部消えます", "Close the tab and everything is gone"],
   "cant.head": ["できないこと", "What it cannot do"],
   "cant.body": ["既存の文字や画像そのものの書き換え（上から重ねるだけ）／Word・Excel への変換／PDF/A・PDF/X への変換／証明書による電子署名（見た目の署名は可）／2つのPDFの比較／OCR（文字認識）。OCR 以外は対応する予定がありません。",
     "Editing existing text or images in place (you can only overlay) / converting to Word or Excel / PDF/A or PDF/X / certificate-based digital signatures (a drawn signature is fine) / comparing two PDFs / OCR. Apart from OCR, none of these are planned."],
   "tool.select": ["選択・移動", "Select / pan"], "tool.select.sub": ["クリックで選ぶ・ドラッグで動かす", "Click to select, drag to pan"],
   "select.note": ["置いた文字や図形をクリックすると選べます。空いている所をドラッグすると紙が動きます（他の効能でも Space を押しながらドラッグ）。", "Click a mark to select it. Drag empty space to pan the page (hold Space to pan in any tool)."],
-  thumbsTitle: ["ページ", "Pages"],
+  thumbsTitle: ["ページ", "Pages"], sheetOpen: ["設定を開く", "Settings"], sheetClose: ["閉じる", "Close"], selectedMark: ["選択中", "selected"],
   hideTools: ["左のパネルを畳む（[）", "Hide the tools panel ([)"], showTools: ["左のパネルを開く（[）", "Show the tools panel ([)"],
   hideProps: ["右のパネルを畳む（]）", "Hide the settings panel (])"], showProps: ["右のパネルを開く（]）", "Show the settings panel (])"],
   "keys.select": ["V / Esc", "V / Esc"], "keys.selectd": ["選択・移動に戻る", "Back to select"],
@@ -416,6 +431,10 @@ const TOOLS = [
 const DRAW_TOOLS = new Set(["text", "image", "draw", "shape", "redact", "crop"]);
 /* 右パネルが「いまのページ」に依存する効能。スクロールでページが変わったとき、これら以外は描き直さない（編集中の入力を壊さない） */
 const PAGE_TOOLS = new Set(["select", "pages", "rotate", "blank", "crop", "redact", "form"]);
+/* 右パネルから操作する効能（スマホではこれを選ぶとシートを開く。描く系は紙が見えているほうが大事なので開かない） */
+const PANEL_TOOLS = new Set(["pages", "rotate", "blank", "watermark", "pagenum", "form", "meta", "convert", "compress", "protect"]);
+const mobileMq = window.matchMedia("(max-width:768px)");
+const isMobile = () => mobileMq.matches;
 
 /* ───────────── 状態 ─────────────
    sources: 読み込んだPDF（bytes と pdf.js / pdf-lib のドキュメント）。画像は1枚1ページのPDFに包んで同じ扱い
@@ -432,7 +451,7 @@ const state = {
   zoom: "fit",          // "fit"（幅に合わせる）/ "page"（全体）/ 数値（1 = 100%）
   viewport: null,       // いまのページの viewport（pdf.js）。座標変換に使う
   views: [],            // 表示単位（ページ列と同じ順）{uid, p, i, box, cv, overlay, page, rotation, base, viewport, scale, key, task}
-  ui: (() => { try { const v = JSON.parse(localStorage.getItem("gp-ui") || ""); return { nav: v.nav !== false, props: v.props !== false }; } catch (_) { return { nav: true, props: true }; } })(),
+  ui: (() => { try { const v = JSON.parse(localStorage.getItem("gp-ui") || ""); return { nav: v.nav !== false, props: v.props !== false, sheet: false }; } catch (_) { return { nav: true, props: true, sheet: false }; } })(),
   baseName: "document",
   fontBytes: null,      // サブセット
   fontFull: null,       // フル（サブセットに無い文字が出たとき）
@@ -470,7 +489,7 @@ function undo() { if (!history.past.length) { status(t("noUndo")); return; } his
 function redo() { if (!history.future.length) { status(t("noRedo")); return; } history.past.push(snapshot()); restore(history.future.pop()); status(t("redone")); }
 
 function shortcutHelp() {
-  return `<div class="row" style="margin-top:24px"><label>${t("keys.title")}</label>
+  return `<div class="row keysblock" style="margin-top:24px"><label>${t("keys.title")}</label>
 <table class="keys"><tr><td>Ctrl+Z / Ctrl+Shift+Z</td><td>${t("keys.undo")}</td></tr><tr><td>Ctrl+S</td><td>${t("keys.save")}</td></tr><tr><td>Ctrl+O</td><td>${t("keys.open")}</td></tr>
 <tr><td>${t("keys.select")}</td><td>${t("keys.selectd")}</td></tr><tr><td>${t("keys.space")}</td><td>${t("keys.spaced")}</td></tr><tr><td>${t("keys.panels")}</td><td>${t("keys.panelsd")}</td></tr><tr><td>Delete</td><td>${t("keys.del")}</td></tr><tr><td>${t("keys.arrow")}</td><td>${t("keys.move")}</td></tr><tr><td>${t("keys.page")}</td><td>${t("keys.pagemove")}</td></tr><tr><td>${t("keys.zoom")}</td><td>${t("keys.zoomd")}</td></tr><tr><td>${t("keys.tools")}</td><td>${t("keys.toolsw")}</td></tr></table></div>`;
 }
@@ -483,7 +502,7 @@ const el = {
   btnSave: $("#btn-save"), btnAdd: $("#btn-add"), btnPrev: $("#btn-prev"), btnNext: $("#btn-next"), btnLang: $("#btn-lang"),
   filePdf: $("#file-pdf"), fileImg: $("#file-img"), stage: $("#stage"), tools: $("#tools"),
   scroller: $("#scroller"), pages: $("#pages"), pageInput: $("#pageinput"), pageTotal: $("#pagetotal"), zoomSel: $("#zoomsel"), btnZoomIn: $("#btn-zoomin"), btnZoomOut: $("#btn-zoomout"),
-  btnNav: $("#btn-nav"), btnProps: $("#btn-props"),
+  btnNav: $("#btn-nav"), btnProps: $("#btn-props"), sheetTitle: $("#sheet-title"), sheetToggle: $("#sheet-toggle"),
 };
 
 function status(msg, ms = 2400) {
@@ -705,7 +724,7 @@ function setCurrent(i, { scroll = false, quiet = false } = {}) {
   const changed = i !== state.current;
   state.current = i; const v = curView(); state.viewport = v.viewport; state.scale = v.scale;
   updatePageInfo();
-  if (scroll) { suppressScroll = true; el.scroller.scrollTop = Math.max(0, v.box.offsetTop - 16); renderVisible(); requestAnimationFrame(() => { suppressScroll = false; }); }
+  if (scroll) { stopFling(); suppressScroll = true; el.scroller.scrollTop = Math.max(0, v.box.offsetTop - 16); renderVisible(); requestAnimationFrame(() => { suppressScroll = false; }); }
   if (changed) {
     if (state.cropDraft) { state.cropDraft = null; renderOverlays(); }
     if (!quiet || PAGE_TOOLS.has(state.tool)) renderProps();
@@ -728,8 +747,9 @@ function mostVisibleView() {
 const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 const ZOOM_MIN = 0.1, ZOOM_MAX = 8;
 function viewSize() {
-  const pad = 56;
-  return { w: Math.max(200, (el.scroller.clientWidth || el.stage.clientWidth) - pad), h: Math.max(200, (el.scroller.clientHeight || 600) - pad) };
+  const cs = getComputedStyle(el.pages);
+  const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + 2, padY = (parseFloat(cs.paddingTop) || 0) + 32;
+  return { w: Math.max(200, (el.scroller.clientWidth || el.stage.clientWidth) - padX), h: Math.max(200, (el.scroller.clientHeight || 600) - padY) };
 }
 function scaleFor(base) {
   const { w, h } = viewSize();
@@ -764,6 +784,7 @@ function syncZoomUI() {
 }
 /* 倍率を変える。anchor（表示座標）を渡すと、その点が画面上の同じ位置に留まるようスクロールを合わせる */
 async function setZoom(z, anchor) {
+  stopFling();
   let before = null;
   if (anchor && state.views.length) {
     const r = el.scroller.getBoundingClientRect();
@@ -917,8 +938,14 @@ function setTool(tl) {
   state.tool = tl; state.selected = null; state.cropDraft = null;
   for (const b of el.tools.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.tool === tl));
   syncCursor();
+  if (isMobile()) {
+    const b = el.tools.querySelector(`button[data-tool="${tl}"]`);
+    if (b) el.tools.scrollLeft = b.offsetLeft - (el.tools.clientWidth - b.offsetWidth) / 2;
+    state.ui.sheet = PANEL_TOOLS.has(tl); applyUI({ rerender: false });
+  }
   renderOverlays(); renderProps();
 }
+function openSheet() { if (isMobile() && !state.ui.sheet) { state.ui.sheet = true; applyUI({ rerender: false }); } }
 function syncCursor() {
   el.pages.className = (DRAW_TOOLS.has(state.tool) ? "cross" : state.tool === "select" || spaceDown ? "hand" : "") + (state.tool === "shape" ? " shape-mode" : "");
 }
@@ -956,6 +983,7 @@ function bind(id, ev, fn) { const n = $(id); if (n) n.addEventListener(ev, fn); 
 function formatKb(n) { return (n / 1024).toFixed(0); }
 
 function renderProps() {
+  updateSheetTitle();
   const p = currentPage();
   const P = el.props;
   if (!p) { P.innerHTML = `<h2>${t("help.title")}</h2><p>${t("help.body")}</p>${shortcutHelp()}`; return; }
@@ -1323,7 +1351,7 @@ function addTextAt(vx, vy) {
   // クリック点を文字の左上にする → 表示上の左下は (vx, vy + h*scale)
   const [x, y] = state.viewport.convertToPdfPoint(vx, vy + a.h * state.scale);
   a.x = x; a.y = y;
-  p.annots.push(a); state.selected = a.id; renderOverlay(); renderProps();
+  p.annots.push(a); state.selected = a.id; openSheet(); renderOverlay(); renderProps();
 }
 function addImageAt(vx, vy, img) {
   const p = currentPage(); pushHistory();
@@ -1376,13 +1404,28 @@ function translateAnnot(a, base, dx, dy) {
 // ページが複数あるので、スクロール面で受けて「どのページの上か」を毎回引く
 let drag = null, spaceDown = false;
 function viewFromEvent(e) { const box = e.target && e.target.closest ? e.target.closest(".pageview") : null; return box ? state.views[+box.dataset.i] : null; }
+let flingRaf = 0;
+function stopFling() { if (flingRaf) { cancelAnimationFrame(flingRaf); flingRaf = 0; } }
+/* 指を離したあと、直前の速さで滑らせて減速する（スマホの標準スクロールに近づける） */
+function fling(vx, vy) {
+  stopFling(); let last = performance.now();
+  const step = (now) => {
+    const dt = Math.min(48, now - last); last = now;
+    el.scroller.scrollLeft -= vx * dt; el.scroller.scrollTop -= vy * dt;
+    const k = Math.pow(0.94, dt / 16); vx *= k; vy *= k;
+    flingRaf = Math.hypot(vx, vy) > 0.03 ? requestAnimationFrame(step) : 0;
+  };
+  flingRaf = requestAnimationFrame(step);
+}
 function startPan(e, deselect = false) {
-  drag = { mode: "pan", sx: e.clientX, sy: e.clientY, sl: el.scroller.scrollLeft, st: el.scroller.scrollTop, moved: false, deselect };
+  stopFling();
+  drag = { mode: "pan", sx: e.clientX, sy: e.clientY, sl: el.scroller.scrollLeft, st: el.scroller.scrollTop, moved: false, deselect, samples: [{ t: e.timeStamp, x: e.clientX, y: e.clientY }] };
   el.scroller.classList.add("panning");
   try { el.scroller.setPointerCapture(e.pointerId); } catch (_) { /* 取れなくても動く */ }
   e.preventDefault();
 }
 el.scroller.addEventListener("pointerdown", (e) => {
+  stopFling();
   if (!state.pages.length || (e.pointerType === "touch" && touches.size >= 2)) return;
   if (e.button === 1 || (spaceDown && e.button === 0)) { startPan(e); return; }
   if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -1394,7 +1437,7 @@ el.scroller.addEventListener("pointerdown", (e) => {
   const target = e.target.closest(".annot");
   if (target) {
     const a = v.p.annots.find((x) => x.id === +target.dataset.id); if (!a) return;
-    state.selected = a.id; renderOverlays(); renderProps();
+    state.selected = a.id; openSheet(); renderOverlays(); renderProps();
     const isHandle = e.target.classList.contains("handle");
     pushHistory();
     drag = { mode: isHandle ? "resize" : "move", v, a, base: { ...a }, sx: vx, sy: vy, moved: false };
@@ -1430,6 +1473,7 @@ el.scroller.addEventListener("pointermove", (e) => {
     const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
     if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
     el.scroller.scrollLeft = drag.sl - dx; el.scroller.scrollTop = drag.st - dy;
+    drag.samples.push({ t: e.timeStamp, x: e.clientX, y: e.clientY }); if (drag.samples.length > 6) drag.samples.shift();
     return;
   }
   const v = drag.v; const rect = v.overlay.getBoundingClientRect();
@@ -1467,6 +1511,10 @@ function endDrag(e) {
   if (d.mode === "pan") {
     el.scroller.classList.remove("panning");
     if (!d.moved && d.deselect && state.selected != null) { state.selected = null; renderOverlays(); renderProps(); }
+    if (d.moved && e.type !== "pointercancel" && d.samples.length >= 2) {
+      const a = d.samples[0], b = d.samples[d.samples.length - 1]; const dt = b.t - a.t;
+      if (dt > 0 && dt < 200 && e.timeStamp - b.t < 80) { const vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt; if (Math.hypot(vx, vy) > 0.2) fling(vx, vy); }
+    }
     return;
   }
   if (d.mode === "ink") { d.svg.remove(); if (d.pts.length >= 2) addInkAnnot(d.pts); return; }
@@ -1821,13 +1869,23 @@ el.scroller.addEventListener("scroll", () => {
 });
 /* 左右のパネルの開閉。畳むと中央が広がるので幅に合わせ直す */
 function applyUI({ rerender = true } = {}) {
-  el.tools.hidden = !state.ui.nav; el.props.hidden = !state.ui.props;
+  const m = isMobile();
+  el.tools.hidden = m ? false : !state.ui.nav; el.props.hidden = m ? !state.ui.sheet : !state.ui.props;
+  el.sheetToggle.textContent = t(state.ui.sheet ? "sheetClose" : "sheetOpen"); el.sheetToggle.setAttribute("aria-expanded", String(state.ui.sheet));
+  updateSheetTitle();
   el.btnNav.textContent = state.ui.nav ? "«" : "»"; el.btnNav.title = t(state.ui.nav ? "hideTools" : "showTools"); el.btnNav.setAttribute("aria-pressed", String(state.ui.nav));
   el.btnProps.textContent = state.ui.props ? "»" : "«"; el.btnProps.title = t(state.ui.props ? "hideProps" : "showProps"); el.btnProps.setAttribute("aria-pressed", String(state.ui.props));
-  try { localStorage.setItem("gp-ui", JSON.stringify(state.ui)); } catch (_) { /* 保存できなくても動く */ }
+  try { localStorage.setItem("gp-ui", JSON.stringify({ nav: state.ui.nav, props: state.ui.props })); } catch (_) { /* 保存できなくても動く */ }
   if (rerender && state.pages.length) render();
 }
-function toggleUI(which) { state.ui[which] = !state.ui[which]; applyUI(); }
+function toggleUI(which) { state.ui[which] = !state.ui[which]; applyUI({ rerender: which !== "sheet" }); if (which === "sheet") renderVisible(); }
+function updateSheetTitle() {
+  if (!el.sheetTitle) return;
+  const tl = state.tool; const sel = selectedAnnot();
+  el.sheetTitle.textContent = !tl ? t("help.title") : (tl === "select" ? t("tool.select") : `${toolNo(tl)} ${t("tool." + tl)}`) + (sel ? ` ・${t("selectedMark")}` : "");
+}
+el.sheetToggle.addEventListener("click", () => toggleUI("sheet"));
+mobileMq.addEventListener("change", () => { state.ui.sheet = false; applyUI(); });
 el.btnNav.addEventListener("click", () => toggleUI("nav"));
 el.btnProps.addEventListener("click", () => toggleUI("props"));
 el.btnSave.addEventListener("click", () => exportPdf());

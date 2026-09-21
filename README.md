@@ -61,8 +61,11 @@ your file anywhere. The only network requests fetch libraries and fonts.
 **拡大・縮小**: ツールバーの ＋ / −、倍率の選択（幅に合わせる・全体を表示・25〜400%）、Ctrl＋ホイール（カーソルの下が動きません）、Ctrl＋＋ / Ctrl＋− / Ctrl＋0、スマホは2本指。
 **Zoom**: + / − in the toolbar, a zoom menu (fit width, fit page, 25–400%), Ctrl+wheel (anchored under the cursor), Ctrl++ / Ctrl+- / Ctrl+0, or pinch on a phone.
 
-Ctrl+Z / Ctrl+Shift+Z、Ctrl+S、Ctrl+O、Delete、矢印キー、V / Esc（選択に戻る）、1〜9 のショートカットあり。スマホでも動きます。
-Shortcuts: Ctrl+Z / Ctrl+Shift+Z, Ctrl+S, Ctrl+O, Delete, arrow keys, V / Esc (back to select), 1–9. Works on phones.
+**スマホ**: 上に効能、中央に紙、下に1行のバー。設定はバーから出るシートで、文字を選んだときと設定から操作する効能を選んだときは自動で開きます。指で掴んで動かすと慣性で滑ります。2本指で拡大。
+**Phone**: tools on top, the page in the middle, a one-line bar at the bottom. Settings slide up from the bar and open by themselves when you select text or pick a tool that is operated from the panel. Drag with a finger to pan with momentum, pinch to zoom.
+
+Ctrl+Z / Ctrl+Shift+Z、Ctrl+S、Ctrl+O、Delete、矢印キー、V / Esc（選択に戻る）、1〜9 のショートカットあり。
+Shortcuts: Ctrl+Z / Ctrl+Shift+Z, Ctrl+S, Ctrl+O, Delete, arrow keys, V / Esc (back to select), 1–9.
 
 ## できないこと / What it cannot do
 
