@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 <!--
-  ジェネリックPDF v1.3.0 / Generic PDF
+  ジェネリックPDF v1.0.0 / Generic PDF
   ─────────────────────────────────────────────────────────────
   このファイル1つで動きます。ダブルクリックで開いても、https://ilove-ai.net/pdf で開いても同じです。
   This single file is the whole app. Open it locally or at https://ilove-ai.net/pdf — same thing.
@@ -200,7 +200,7 @@
   <header>
     <button id="btn-nav" class="tgl" aria-label="tools panel">«</button>
     <h1>ジェネリックPDF</h1>
-    <span class="ver">v1.3.0</span>
+    <span class="ver">v1.0.0</span>
     <a class="gh" href="https://github.com/takumi-golf/generic-pdf" target="_blank" rel="noopener" data-t="source">ソース →</a>
     <span class="spacer"></span>
     <span id="fname" class="mono mute"></span>
@@ -259,7 +259,7 @@ if (!window.PDFLib || !window.fontkit) {
 }
 const { PDFDocument, StandardFonts, degrees, rgb, BlendMode, LineCapStyle, LineJoinStyle,
   pushGraphicsState, popGraphicsState, setLineWidth, setStrokingColor, setLineCap, setLineJoin, moveTo, lineTo, stroke } = PDFLib;
-const VERSION = "1.3.0";
+const VERSION = "1.0.0";
 const HOST = "https://ilove-ai.net";
 // 同梱サブセットは同一オリジン（本番・ローカル配信）を先に試し、単体で開いたとき（file://）は本番から取る
 const FONT_SUBSET_PATH = "/pdf/fonts/NotoSansJP-Regular.subset.otf";

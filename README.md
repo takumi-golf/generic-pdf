@@ -34,7 +34,7 @@ your file anywhere. The only network requests fetch libraries and fonts.
 - 閉じれば全部消える / Close the tab and everything is gone
 - 1 ファイルで動く。ダブルクリックで開いても同じ / One file. Double-click it and it works the same
 
-## できること（v1.3.0）/ What it does
+## できること（v1.0.0）/ What it does
 
 | # | 効能 / Tool | 内容 / Details |
 |---|---|---|
