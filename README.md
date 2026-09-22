@@ -67,7 +67,7 @@ grep -n 'fetch(\|XMLHttpRequest\|FormData\|sendBeacon\|POST' index.html
 
 | # | 効能 | 内容 |
 |---|---|---|
-| 01 | 文字を書く | タップした場所にその場で入力。書き直し・移動・サイズ・色。日本語OK |
+| 01 | 文字を書く | タップした場所にその場で入力。書き直し・移動・サイズ・色。日本語OK（フォントを全体埋め込みするので、Chrome・Acrobat でも表示される。保存ファイルは日本語を含むと約1.5MB増える） |
 | 02 | 印影・画像 | PNG（透過OK）/ JPG を置く。拡大縮小・移動 |
 | 03 | 手書き・署名 | 指やマウスで描く。色・太さ |
 | 04 | 図形・マーカー | 枠線・黄色マーカー・白塗り（修正液）・直線・矢印 |
@@ -116,7 +116,7 @@ grep -n 'fetch(\|XMLHttpRequest\|FormData\|sendBeacon\|POST' index.html
 
 ## 中身
 
-`index.html` の1ファイル、2,058行、148KB。ビルド工程はありません。ブラウザで開いて、そのまま直せます。
+`index.html` の1ファイル、2,060行、148KB。ビルド工程はありません。ブラウザで開いて、そのまま直せます。
 
 | 使っているもの | ライセンス | 用途 |
 |---|---|---|
@@ -155,10 +155,10 @@ I was paying ¥23,760 a year for Acrobat. The alternative was handing my documen
 
 Your PDF is read into memory with `FileReader`; saving hands a `Blob` to `a[download]`. The only network traffic **fetches** libraries, the Japanese font, and the UI web font. Open your browser's Network tab and edit a PDF: not a single POST. `localStorage` holds two things — the language (`gp-lang`) and whether the side panels are folded (`gp-ui`). Close the tab and the document is gone.
 
-**What it does.** Text (typed in place, movable, Japanese OK) · stamps and images · freehand signatures · boxes, highlighter, white-out, lines, arrows · redaction (the page is rasterized, so what was underneath is really gone) · merge, split, reorder · rotate · blank pages · crop · watermarks · page numbers and Bates numbering · AcroForm filling with flatten · metadata · PDF ⇄ PNG/JPG (zip for multi-page) · lossless and lossy compression · AES-256 passwords, and removing them.
+**What it does.** Text (typed in place, movable, Japanese OK; the font is embedded whole so it renders in Chrome and Acrobat, adding ~1.5 MB to files with Japanese) · stamps and images · freehand signatures · boxes, highlighter, white-out, lines, arrows · redaction (the page is rasterized, so what was underneath is really gone) · merge, split, reorder · rotate · blank pages · crop · watermarks · page numbers and Bates numbering · AcroForm filling with flatten · metadata · PDF ⇄ PNG/JPG (zip for multi-page) · lossless and lossy compression · AES-256 passwords, and removing them.
 
 Continuous scrolling through all pages, zoom from 25% to 400% (Ctrl+wheel stays anchored under the cursor), select/pan as the default mode, and a phone layout with in-place typing, drag-to-move, momentum panning and pinch zoom. Japanese and English UI.
 
 **What it does not do**, and — apart from OCR — is not planned to: editing existing text or images in place (you overlay instead; white-out plus text does the job) · converting to Word/Excel/PowerPoint · PDF/A or PDF/X · certificate-based digital signatures (a drawn or image signature is fine) · comparing two PDFs · OCR (under consideration) · XFA forms · working offline (libraries and fonts come from a CDN).
 
-**Built with** pdf-lib (MIT), @pdf-lib/fontkit (MIT), pdf.js (Apache-2.0), qpdf-wasm (Apache-2.0, loaded on demand) and Noto Sans JP (SIL OFL 1.1), all pinned. The app itself is MIT. 2,058 lines, 148 KB, no build step — open it in a browser and edit it. Bug reports and requests: [Issues](../../issues).
+**Built with** pdf-lib (MIT), @pdf-lib/fontkit (MIT), pdf.js (Apache-2.0), qpdf-wasm (Apache-2.0, loaded on demand) and Noto Sans JP (SIL OFL 1.1), all pinned. The app itself is MIT. 2,060 lines, 148 KB, no build step — open it in a browser and edit it. Bug reports and requests: [Issues](../../issues).

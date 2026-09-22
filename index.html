@@ -240,7 +240,7 @@
 <div id="app">
   <header>
     <h1>ジェネリックPDF</h1>
-    <span class="ver">v1.0.0</span>
+    <span class="ver">v1.0.1</span>
     <a class="gh" href="https://github.com/takumi-golf/generic-pdf" target="_blank" rel="noopener" data-t="source">ソース →</a>
     <span id="fname" class="mono mute"></span>
     <span class="spacer"></span>
@@ -302,7 +302,7 @@ if (!window.PDFLib || !window.fontkit) {
 }
 const { PDFDocument, StandardFonts, degrees, rgb, BlendMode, LineCapStyle, LineJoinStyle,
   pushGraphicsState, popGraphicsState, setLineWidth, setStrokingColor, setLineCap, setLineJoin, moveTo, lineTo, stroke } = PDFLib;
-const VERSION = "1.0.0";
+const VERSION = "1.0.1";
 const HOST = "https://ilove-ai.net";
 // 同梱サブセットは同一オリジン（本番・ローカル配信）を先に試し、単体で開いたとき（file://）は本番から取る
 const FONT_SUBSET_PATH = "/pdf/fonts/NotoSansJP-Regular.subset.otf";
@@ -1356,7 +1356,7 @@ async function applyForm(src) {
       else if (kind === "radio" || kind === "dropdown") { if (v) f.select(String(v)); else if (kind === "dropdown") f.clear(); }
       else if (kind === "list") { f.select(Array.isArray(v) ? v : [v]); }
     }
-    if (needJp) { const bytes = await fontFor(Object.values(draft).map(String).join("")); form.updateFieldAppearances(await doc.embedFont(bytes, { subset: true })); }
+    if (needJp) { const bytes = await fontFor(Object.values(draft).map(String).join("")); form.updateFieldAppearances(await doc.embedFont(bytes, { subset: false })); } // subset:false の理由は embedFont 側のコメント
     else form.updateFieldAppearances();
     form.flatten({ updateFieldAppearances: false });
     const out = (await doc.save()).buffer;
@@ -1732,7 +1732,9 @@ async function buildPdf({ only } = {}) {
   const fontCache = new Map();
   const embedFont = async (text) => {
     const key = isAscii(text) ? "helv" : await fontFor(text);
-    if (!fontCache.has(key)) fontCache.set(key, key === "helv" ? await out.embedFont(StandardFonts.Helvetica) : await out.embedFont(key, { subset: true }));
+    // 日本語フォントは subset:false で全体を埋め込む。pdf-lib/fontkit の部分埋め込みは CJK フォントで壊れたサブセットを作り、
+    // pdf.js では読めるのに Chrome（PDFium）・Acrobat・poppler では日本語が消える（2026-09-22 実測）。保存ファイルは +1.5MB になるが全ビューアで出る
+    if (!fontCache.has(key)) fontCache.set(key, key === "helv" ? await out.embedFont(StandardFonts.Helvetica) : await out.embedFont(key, { subset: false }));
     return fontCache.get(key);
   };
   const imgCache = new Map();
